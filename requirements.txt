@@ -1,0 +1,10 @@
+# Dependencias del proyecto.
+# Instalar con:  ./env/bin/python -m pip install -r requirements.txt
+#
+# Interfaz grafica de escritorio (incluye Qt Designer: pyside6-designer)
+PySide6==6.12.0
+# Cliente de Supabase (Postgres/Auth/Storage en la nube)
+supabase==2.34.1
+#
+# NOTA: SQLite NO se instala. Se usa el modulo sqlite3 de la libreria
+# estandar de Python (ver docs/sqlite3.md).

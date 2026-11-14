@@ -1,0 +1,35 @@
+# Entorno virtual
+env/
+.venv/
+venv/
+
+# Secretos y configuracion local
+.env
+.env.local
+
+# Base de datos local de SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite3
+datos/*.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Archivos generados por Qt Designer / pyside6-uic
+ui_*.py
+*.qmlc
+*.jsc
+
+# macOS / editores
+.DS_Store
+.idea/
+.vscode/
+*.swp
