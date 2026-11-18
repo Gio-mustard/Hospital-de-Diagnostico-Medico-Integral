@@ -1,7 +1,7 @@
 """Tabla de usuarios del sistema. Contiene los datos de los usuarios que pueden iniciar sesión en el sistema y sus roles."""
 
 
-from .constants import Entidad,Roles
+from .constants import LONGITUD_UUID, Entidad, Roles
 
 class Usuario(Entidad):
     """Representa un usuario del sistema con sus credenciales y roles."""
@@ -22,7 +22,15 @@ class Usuario(Entidad):
 
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
-        self._validar_clave_propia('id')
+
+        # id TEXT PRIMARY KEY: es un UUID que trae quien crea el usuario, no un
+        # AUTOINCREMENT, asi que se valida como texto de 36 caracteres y no con
+        # _validar_clave_propia, que exige un entero >= 1 y rechazaba todo UUID.
+        self._validar_texto('id', LONGITUD_UUID)
+        if len(self.id) != LONGITUD_UUID:
+            self._fallar(
+                'id', self.id, f"debe medir exactamente {LONGITUD_UUID} caracteres"
+            )
 
         self._validar_texto('hash_contrasena', 255)
         self._validar_patron('correo', r'^[^@]+@[^@]+\.[^@]+$', 'correo electrónico')

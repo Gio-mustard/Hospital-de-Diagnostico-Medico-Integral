@@ -3,13 +3,13 @@ import sqlite3
 
 class Database():
     def __init__(self, db_file: str):
-        self._db_file = db_file
+        self.db_file = db_file
         self._connection = None
 
     def connect(self):
         """Establece la conexión a la base de datos."""
         if self._connection is None:
-            self._connection = sqlite3.connect(self._db_file)
+            self._connection = sqlite3.connect(self.db_file)
             self._connection.row_factory = sqlite3.Row  # Para obtener resultados como diccionarios
 
     def close(self):

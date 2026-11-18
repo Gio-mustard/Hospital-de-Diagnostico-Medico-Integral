@@ -8,18 +8,24 @@ from .constants import (
     PATRON_CODIGO_POSTAL,
     PATRON_CURP,
     PATRON_TELEFONO,
-    
+    Entidad,
     Generos,
 )
-from .usuario import Usuario
 
 
-class DerechoHabiente(Usuario):
+class DerechoHabiente(Entidad):
     """Persona registrada en el hospital, sea paciente o personal.
 
     De ella heredan `Paciente`, `Trabajador` y `Recepcionista`, que en el DDL
     son tablas con un `id_derechohabiente NOT NULL UNIQUE`: una especialización
     uno a uno.
+
+    NO hereda de `Usuario`: en el DDL la tabla DerechoHabiente no tiene las
+    columnas de credenciales (`hash_contrasena`, `correo`, `rol`), sino una FK
+    opcional al usuario que puede iniciar sesión como esta persona. Esa
+    relación es `auth_user_id`, que se valida más abajo. Una persona no ES un
+    usuario del sistema: TIENE uno, y puede no tenerlo (un paciente que nunca
+    entra a la app).
 
     El campo `activo` se declara aquí y nada más aquí. Las tablas hijas repiten
     la columna `activo`, pero el repositorio escribe en todas el mismo valor
@@ -60,6 +66,7 @@ class DerechoHabiente(Usuario):
         self.telefono = telefono
         self.curp = curp
         self.activo = activo
+        self._validar_propiedades()
 
     # -- datos derivados de las propiedades del objeto ----------------------
 
@@ -81,7 +88,7 @@ class DerechoHabiente(Usuario):
         super()._validar_propiedades()
         self._validar_clave_propia('id_derechohabiente')
 
-        # chk_dh_longitudes
+        
         self._validar_texto('nombres', 100)
         self._validar_texto('apellido_paterno', 100)
         self._validar_texto('apellido_materno', 100, opcional=True)
@@ -89,31 +96,26 @@ class DerechoHabiente(Usuario):
         self._validar_texto('ciudad', 50)
         self._validar_texto('estado', 50)
 
-        # chk_dh_auth_uuid
         self._validar_texto('auth_user_id', LONGITUD_UUID, opcional=True)
         if self.auth_user_id is not None and len(self.auth_user_id) != LONGITUD_UUID:
             self._fallar(
                 'auth_user_id', self.auth_user_id, f"debe medir exactamente {LONGITUD_UUID} caracteres"
             )
 
-        # chk_dh_cp
         self._validar_patron('codigo_postal', PATRON_CODIGO_POSTAL, "5 dígitos")
 
-        # chk_dh_fecha_nac + trg_dh_fecha_nac_ins / _upd
         self._validar_fecha(
             'fecha_nacimiento', minima=FECHA_NACIMIENTO_MINIMA, maxima=self._hoy()
         )
 
-        # chk_dh_genero
+        
         self._validar_enum('genero', Generos, opcional=True)
 
-        # chk_dh_telefono
+        
         self._validar_patron(
             'telefono', PATRON_TELEFONO, "E.164, por ejemplo '+526866024822'", opcional=True
         )
 
-        # chk_dh_curp
         self._validar_patron('curp', PATRON_CURP, "18 caracteres de CURP en mayúsculas")
 
-        # chk_dh_activo
         self._validar_booleano('activo')
