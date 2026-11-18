@@ -4,7 +4,7 @@ from .constants import EstadosConsultorio
 from .espacio_fisico import EspacioFisico
 
 
-class Consultorio(EspacioFisico):
+class Consultorio (EspacioFisico) :
     """Consultorio de consulta externa. PK manual `num_consultorio`."""
 
     _CAMPOS_CLAVE = ('numero',)

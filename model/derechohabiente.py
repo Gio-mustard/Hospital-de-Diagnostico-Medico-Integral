@@ -8,12 +8,13 @@ from .constants import (
     PATRON_CODIGO_POSTAL,
     PATRON_CURP,
     PATRON_TELEFONO,
-    Entidad,
+    
     Generos,
 )
+from .usuario import Usuario
 
 
-class DerechoHabiente(Entidad):
+class DerechoHabiente(Usuario):
     """Persona registrada en el hospital, sea paciente o personal.
 
     De ella heredan `Paciente`, `Trabajador` y `Recepcionista`, que en el DDL

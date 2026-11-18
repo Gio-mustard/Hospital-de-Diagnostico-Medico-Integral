@@ -37,9 +37,22 @@ DROP TABLE IF EXISTS Consultorio;
 DROP TABLE IF EXISTS Habitacion;
 DROP TABLE IF EXISTS Especialidad;
 
+
+CREATE TABLE Usuario(
+    id TEXT PRIMARY KEY,
+    hash_contrasena TEXT NOT NULL,
+    correo TEXT NOT NULL UNIQUE,
+    rol TEXT NOT NULL,
+    activo INTEGER NOT NULL DEFAULT 1,
+    CONSTRAINT chk_usuario_rol CHECK (rol IN ('DerechoHabiente', 'Paciente', 'Trabajador', 'Recepcionista', 'Medico', 'Enfermero')),
+    CONSTRAINT chk_usuario_activo CHECK (activo IN (0, 1)),
+    CONSTRAINT chk_usuario_auth_uuid CHECK (length(auth_user_id) = 36),
+    CONSTRAINT chk_usuario_correo CHECK (correo GLOB '*@*.*' AND length(correo) <= 150)
+) STRICT;
+
 CREATE TABLE DerechoHabiente (
     id_derechohabiente INTEGER PRIMARY KEY AUTOINCREMENT,
-    auth_user_id TEXT UNIQUE,                -- Antes FK a auth.users (Supabase); aquí no existe
+    usuario_id TEXT UNIQUE,                -- Antes FK a auth.users (Supabase); aquí no existe
     nombres TEXT NOT NULL,
     apellido_paterno TEXT NOT NULL,
     apellido_materno TEXT,
@@ -52,6 +65,8 @@ CREATE TABLE DerechoHabiente (
     telefono TEXT,
     curp TEXT NOT NULL UNIQUE,
     activo INTEGER NOT NULL DEFAULT 1,
+
+    FOREIGN KEY (usuario_id) REFERENCES Usuario (id) ON DELETE RESTRICT,
 
     -- Longitudes de los VARCHAR(n) originales (SQLite no las aplica solo)
     CONSTRAINT chk_dh_longitudes CHECK (

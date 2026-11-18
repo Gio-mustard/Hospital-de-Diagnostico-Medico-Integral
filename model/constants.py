@@ -15,6 +15,13 @@ from typing import Any, ClassVar, NoReturn
 # Enums: una por cada CHECK (... IN (...)) del DDL
 # ---------------------------------------------------------------------------
 
+class Roles(Enum):
+    """Usuario.rol -> chk_usuario_rol"""
+
+    ADMINISTRADOR = 'Administrador'
+    RECEPCIONISTA = 'Recepcionista'
+    MEDICO = 'Médico'
+    ENFERMERO = 'Enfermero'
 
 class Generos(Enum):
     """DerechoHabiente.genero -> chk_dh_genero"""
