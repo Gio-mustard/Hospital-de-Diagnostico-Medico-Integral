@@ -30,9 +30,6 @@ class Repositorio(ABC):
         """Base de datos inyectada en el repositorio."""
         return self._db
 
-    # ------------------------------------------------------------------
-    # Ayudas protegidas
-    # ------------------------------------------------------------------
 
     def _filas(self, sql: str, params: Sequence[Any] = ()) -> list[Any]:
         """Ejecuta un SELECT y devuelve todos sus renglones."""
@@ -74,9 +71,6 @@ class Repositorio(ABC):
         )
         return self.db.execute(sql, tuple(datos[col] for col in columnas))
 
-    # ------------------------------------------------------------------
-    # Contrato
-    # ------------------------------------------------------------------
 
     @abstractmethod
     def obtener_por_id(self, *args: Any, **kwargs: Any) -> Any:

@@ -23,9 +23,7 @@ class Especialidad(Entidad):
         super()._validar_propiedades()
         self._validar_clave_propia('id_esp')
 
-        # chk_esp_nombre
         self._validar_texto('nombre', 100)
 
-        # descripcion es TEXT sin CHECK de longitud en el DDL
         if self.descripcion is not None and not self.descripcion.strip():
             self._fallar('descripcion', self.descripcion, "si se captura, no puede estar vacía")

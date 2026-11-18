@@ -51,10 +51,8 @@ class AtencionMedica(Entidad):
         self._validar_llave_foranea('id_medico')
         self._validar_llave_foranea('id_recepcionista', opcional=True)
 
-        # chk_cita_fecha / chk_emergencia_fecha
         self._validar_fecha_hora('fecha_hora')
 
-        # motivo: TEXT NOT NULL sin CHECK de longitud en el DDL
         self._validar_texto('motivo', 1_000)
 
         if self.diagnostico is not None and not self.diagnostico.strip():

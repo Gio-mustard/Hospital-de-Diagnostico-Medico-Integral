@@ -64,7 +64,6 @@ class Medico(Trabajador):
         self._validar_clave_propia('id_medico')
         self._validar_llave_foranea('id_trabajador', opcional=True)
 
-        # chk_medico_cedula
         self._validar_patron(
             'cedula_profesional', PATRON_CEDULA_PROFESIONAL, "de 7 a 10 dígitos"
         )

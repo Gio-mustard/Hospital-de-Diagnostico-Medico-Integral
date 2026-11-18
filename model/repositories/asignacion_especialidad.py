@@ -5,9 +5,7 @@ from model.asignacion_especialidad import (
 )
 from .repositorio import Repositorio
 
-#: Columnas comunes a las dos tablas, sin la FK del titular.
 COLUMNAS_COMUNES = ("id_esp", "documentos", "institucion")
-#: Tabla, columna del titular y clase por cada especializacion.
 MEDICO = ("MedicoEspecialidad", "id_medico", MedicoEspecialidad)
 ENFERMERO = ("EnfermeroEspecialidad", "id_enfermero", EnfermeroEspecialidad)
 

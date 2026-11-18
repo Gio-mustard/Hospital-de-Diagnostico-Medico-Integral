@@ -41,11 +41,9 @@ class Ingreso(Entidad):
         self._validar_llave_foranea('num_habitacion')
         self._validar_llave_foranea('id_recepcionista', opcional=True)
 
-        # chk_ingreso_formato
         self._validar_fecha_hora('fecha_ingreso')
         self._validar_fecha_hora('fecha_alta', opcional=True)
 
-        # chk_ingreso_fechas
         if self.fecha_alta is not None and self.fecha_alta <= self.fecha_ingreso:
             self._fallar(
                 'fecha_alta',

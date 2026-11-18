@@ -69,7 +69,6 @@ from .recepcionista import Recepcionista
 from .trabajador import Trabajador
 
 __all__ = [
-    # Base y enumeraciones
     'Entidad',
     'Generos',
     'TiposSangre',
@@ -82,23 +81,19 @@ __all__ = [
     'NivelesUrgencia',
     'CLAVES_TRATAMIENTO',
     'DIAS_MINIMOS_CADUCIDAD',
-    # Personas
     'DerechoHabiente',
     'Paciente',
     'Trabajador',
     'Medico',
     'Enfermero',
     'Recepcionista',
-    # Especialidades
     'Especialidad',
     'AsignacionEspecialidad',
     'MedicoEspecialidad',
     'EnfermeroEspecialidad',
-    # Espacios
     'EspacioFisico',
     'Habitacion',
     'Consultorio',
-    # Clínico
     'Medicamento',
     'HistorialMedico',
     'AtencionMedica',

@@ -3,9 +3,7 @@ from enum import Enum
 from model.usuario import Usuario
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Usuario, en el orden en que se leen y se escriben.
 COLUMNAS = ("id", "hash_contrasena", "correo", "rol")
-#: Llave primaria de la tabla (TEXT manual, no AUTOINCREMENT).
 CLAVE = ("id",)
 
 

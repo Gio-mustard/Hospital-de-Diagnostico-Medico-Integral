@@ -4,7 +4,6 @@ from enum import Enum
 from model.historial_medico import HistorialMedico
 from .repositorio import Repositorio
 
-#: Columnas de la tabla HistorialMedico.
 COLUMNAS = (
     "id_historial",
     "uuid_publico",
@@ -16,7 +15,6 @@ COLUMNAS = (
     "datos_dinamicos",
     "etiquetas",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_historial",)
 
 

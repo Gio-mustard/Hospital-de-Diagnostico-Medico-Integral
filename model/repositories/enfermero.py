@@ -3,23 +3,16 @@ from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS as COLUMNAS_DH
 from .trabajador import TrabajadorSQLRepository
 
-#: Columnas propias de la tabla Enfermero. `activo` se repite aqui, pero el
-#: valor que se escribe siempre es el heredado del DerechoHabiente.
 COLUMNAS = ("id_enfermero", "id_trabajador", "activo")
-#: Columnas propias que se leen: `activo` se lee del DerechoHabiente.
 COLUMNAS_LECTURA = COLUMNAS[:-1]
-#: Columnas heredadas de Trabajador que se leen en el JOIN.
 COLUMNAS_TRABAJADOR = ("numero_empleado", "departamento", "fecha_ingreso")
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_enfermero",)
 
-#: Lista de SELECT del JOIN con Trabajador y DerechoHabiente.
 SELECT_UNIDO = ", ".join(
     [f"e.{col}" for col in COLUMNAS_LECTURA]
     + [f"t.{col}" for col in COLUMNAS_TRABAJADOR]
     + [f"dh.{col}" for col in COLUMNAS_DH]
 )
-#: FROM comun de las lecturas.
 DESDE_UNIDO = """
     FROM Enfermero e
     INNER JOIN Trabajador t ON e.id_trabajador = t.id_trabajador
@@ -104,7 +97,6 @@ class EnfermeroSQLRepository(Repositorio):
 
         if not self._trab_repo.darbaja(enfermero):
             return False
-        # La columna `activo` de Enfermero refleja la del DerechoHabiente.
         self.db.execute(
             "UPDATE Enfermero SET activo = 0 WHERE id_trabajador = ?",
             (enfermero.id_trabajador,),

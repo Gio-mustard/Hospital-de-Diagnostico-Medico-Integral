@@ -68,22 +68,20 @@ class DerechoHabiente(Entidad):
         self.activo = activo
         self._validar_propiedades()
 
-    # -- datos derivados de las propiedades del objeto ----------------------
 
     @property
-    def nombre_completo(self) -> str: # just in case...
+    def nombre_completo(self) -> str:
         partes = (self.nombres, self.apellido_paterno, self.apellido_materno)
         return " ".join(parte for parte in partes if parte)
 
     @property
-    def edad(self) -> int:# just in case... 
-        nacimiento: date = date.fromisoformat(self.fecha_nacimiento) if isinstance(self.fecha_nacimiento, str) else self.fecha_nacimiento # Solo en caso de que se haya creado el objeto con fecha_nacimiento como str, lo cual no debería pasar en la práctica pero y si si???.
+    def edad(self) -> int:
+        nacimiento: date = date.fromisoformat(self.fecha_nacimiento) if isinstance(self.fecha_nacimiento, str) else self.fecha_nacimiento
         hoy = self._hoy()
         cumplio = (hoy.month, hoy.day) >= (nacimiento.month, nacimiento.day)
         return hoy.year - nacimiento.year - (0 if cumplio else 1)
 
     
-
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_clave_propia('id_derechohabiente')

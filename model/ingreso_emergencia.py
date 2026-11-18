@@ -45,5 +45,4 @@ class IngresoEmergencia(AtencionMedica):
         self._validar_clave_propia('id_ingreso_emergencia')
         self._validar_llave_foranea('num_habitacion', opcional=True)
 
-        # chk_emergencia_nivel
         self._validar_enum('nivel_urgencia', NivelesUrgencia)

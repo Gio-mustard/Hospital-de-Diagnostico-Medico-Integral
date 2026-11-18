@@ -29,15 +29,13 @@ class HistorialMedico(Entidad):
         uuid_publico: str | None = None,
     ) -> None:
         self.id_historial = id_historial
-        self.uuid_publico = uuid_publico  # None: lo genera el DEFAULT del DDL
+        self.uuid_publico = uuid_publico
         self.id_paciente = id_paciente
         self.id_medico = id_medico
         self.fecha_registro = fecha_registro
         self.documento_url = documento_url
         self.tipo_documento = tipo_documento
         self.datos_dinamicos = datos_dinamicos
-        # DEFAULT '[]' del DDL. Se usa None como centinela para no compartir
-        # una misma lista entre todas las instancias.
         self.etiquetas = [] if etiquetas is None else etiquetas
 
     @property
@@ -51,29 +49,22 @@ class HistorialMedico(Entidad):
         self._validar_llave_foranea('id_paciente')
         self._validar_llave_foranea('id_medico')
 
-        # uuid_publico: NOT NULL UNIQUE con DEFAULT de UUID v4
         self._validar_texto('uuid_publico', LONGITUD_UUID, opcional=True)
         if self.uuid_publico is not None and len(self.uuid_publico) != LONGITUD_UUID:
             self._fallar(
                 'uuid_publico', self.uuid_publico, f"debe medir {LONGITUD_UUID} caracteres"
             )
 
-        # chk_hist_fecha
         self._validar_fecha_hora('fecha_registro')
 
-        # chk_hist_documento_url
         self._validar_url_https('documento_url', maximo=500, opcional=True)
 
-        # chk_hist_tipo
         self._validar_enum('tipo_documento', TiposDocumento)
 
-        # chk_hist_json_valido
         self._validar_json('datos_dinamicos', dict, opcional=True)
 
-        # chk_hist_etiquetas
         self._validar_json('etiquetas', list)
 
-        # chk_hist_no_vacio
         if self.documento_url is None and not self.datos_dinamicos:
             self._fallar(
                 'documento_url',

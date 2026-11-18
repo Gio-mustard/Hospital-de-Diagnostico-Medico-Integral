@@ -11,7 +11,6 @@ from typing import ClassVar
 
 from .constants import Entidad
 
-#: chk_medesp_institucion y chk_enfesp_institucion
 LONGITUD_MAXIMA_INSTITUCION = 150
 
 
@@ -22,7 +21,6 @@ class AsignacionEspecialidad(Entidad):
     (`_CAMPO_TITULAR`) y cómo leerla (`id_titular`).
     """
 
-    #: Nombre del atributo con la FK al profesional, para los mensajes de error.
     _CAMPO_TITULAR: ClassVar[str]
 
     def __init__(
@@ -51,10 +49,8 @@ class AsignacionEspecialidad(Entidad):
         self._validar_llave_foranea(self._CAMPO_TITULAR)
         self._validar_llave_foranea('id_esp')
 
-        # chk_medesp_documentos_url / chk_enfesp_documentos_url
         self._validar_url_https('documentos', opcional=True)
 
-        # chk_medesp_institucion / chk_enfesp_institucion
         self._validar_texto('institucion', LONGITUD_MAXIMA_INSTITUCION, opcional=True)
 
 

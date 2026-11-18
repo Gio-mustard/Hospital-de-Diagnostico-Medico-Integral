@@ -45,11 +45,8 @@ class Cita(AtencionMedica):
         self._validar_clave_propia('id_cita')
         self._validar_llave_foranea('num_consultorio', opcional=True)
 
-        # chk_cita_estado
         self._validar_enum('estado', EstadosCita)
 
-        # chk_cita_diagnostico_coherente: el diagnóstico existe si y solo si la
-        # cita quedó Completada.
         completada = self.estado is EstadosCita.COMPLETADA
         if completada and self.diagnostico is None:
             self._fallar(

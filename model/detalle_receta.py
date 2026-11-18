@@ -28,5 +28,4 @@ class DetalleReceta(Entidad):
         self._validar_llave_foranea('id_receta')
         self._validar_llave_foranea('id_medicamento')
 
-        # dosis_indicaciones: TEXT NOT NULL sin CHECK de longitud en el DDL
         self._validar_texto('dosis_indicaciones', 1_000)

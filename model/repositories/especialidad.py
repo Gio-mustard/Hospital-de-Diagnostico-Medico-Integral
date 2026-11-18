@@ -1,9 +1,7 @@
 from model.especialidad import Especialidad
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Especialidad.
 COLUMNAS = ("id_esp", "nombre", "descripcion")
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_esp",)
 
 

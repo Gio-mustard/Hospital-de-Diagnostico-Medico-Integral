@@ -3,9 +3,7 @@ from enum import Enum
 from model.consultorio import Consultorio
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Consultorio.
 COLUMNAS = ("num_consultorio", "piso", "departamento", "estado")
-#: Llave primaria manual (sin AUTOINCREMENT).
 CLAVE = ("num_consultorio",)
 
 

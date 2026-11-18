@@ -3,8 +3,6 @@ from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS_SIN_CLAVE as COLUMNAS_DH
 from .derechohabiente import DerechoHabienteSQLRepository
 
-#: Columnas propias de la tabla Trabajador. `activo` se repite aqui, pero el
-#: valor que se escribe siempre es el heredado del DerechoHabiente.
 COLUMNAS = (
     "id_trabajador",
     "id_derechohabiente",
@@ -13,17 +11,12 @@ COLUMNAS = (
     "fecha_ingreso",
     "activo",
 )
-#: Columnas propias que se leen: `activo` se lee del DerechoHabiente, que es su
-#: unica fuente de verdad, para no arrastrar dos banderas que se contradigan.
 COLUMNAS_LECTURA = COLUMNAS[:-1]
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_trabajador",)
 
-#: Lista de SELECT del JOIN con DerechoHabiente.
 SELECT_UNIDO = ", ".join(
     [f"t.{col}" for col in COLUMNAS_LECTURA] + [f"dh.{col}" for col in COLUMNAS_DH]
 )
-#: FROM comun de las lecturas.
 DESDE_UNIDO = """
     FROM Trabajador t
     INNER JOIN DerechoHabiente dh ON t.id_derechohabiente = dh.id_derechohabiente
@@ -120,7 +113,6 @@ class TrabajadorSQLRepository(Repositorio):
 
         if not self._dh_repo.darbaja(trabajador):
             return False
-        # La columna `activo` de Trabajador refleja la del DerechoHabiente.
         self.db.execute(
             "UPDATE Trabajador SET activo = 0 WHERE id_derechohabiente = ?",
             (trabajador.id_derechohabiente,),

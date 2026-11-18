@@ -11,9 +11,6 @@ from json import JSONDecodeError, loads
 from re import fullmatch
 from typing import Any, ClassVar, NoReturn
 
-# ---------------------------------------------------------------------------
-# Enums: una por cada CHECK (... IN (...)) del DDL
-# ---------------------------------------------------------------------------
 
 class Roles(Enum):
     """Usuario.rol -> chk_usuario_rol"""
@@ -109,52 +106,30 @@ class NivelesUrgencia(Enum):
     BAJO = 'Bajo'
 
 
-# ---------------------------------------------------------------------------
-# Patrones regex para validar campos antes de que lleguen a la BD: 
-# ---------------------------------------------------------------------------
-
-
-#: length = 5 y sin caracteres no numéricos
 PATRON_CODIGO_POSTAL = r"\d{5}"
 
-#: length = 18 y sin caracteres no válidos de CURP (mayúsculas, dígitos y H/M)
 PATRON_CURP = r"[A-Z]{4}\d{6}[HM][A-Z]{5}[0-9A-Z]\d"
 
-#'+' + dígito 1-9 y 7 a 14 dígitos más (largo 9 a 16)
 PATRON_TELEFONO = r"\+[1-9]\d{7,14}"
 
-#: 'EMP-' + 4 dígitos como mínimo, con largo total de 8 a 20
 PATRON_NUMERO_EMPLEADO = r"EMP-\d{4,16}"
 
-#:  de 7 a 10 dígitos
 PATRON_CEDULA_PROFESIONAL = r"\d{7,10}"
 
-#:  -> 'https://' + algo sin espacios
 PATRON_URL_HTTPS = r"https://\S+"
 
-# ---------------------------------------------------------------------------
-# Límites numéricos y de fechas
-# ---------------------------------------------------------------------------
 
+LONGITUD_UUID = 36
 
-LONGITUD_UUID = 36 #? Esto podria eliminarse solo usando un validador de UUID, pero lo dejo para que el mensaje de error sea más claro y no diga "no es un UUID válido" sino "debe medir exactamente 36 caracteres"
-
-#: fecha_nacimiento >= '1900-01-01'
 FECHA_NACIMIENTO_MINIMA = date(1900, 1, 1)
 
-#: Pisos del hospital, existen 20 pisos.
 PISO_MINIMO = 1
 PISO_MAXIMO = 20
 
 
-DIAS_MINIMOS_CADUCIDAD = 15 # para medicamentos
+DIAS_MINIMOS_CADUCIDAD = 15
 
 CLAVES_TRATAMIENTO = ('diagnostico', 'medicamentos', 'indicaciones_generales')
-
-
-# ---------------------------------------------------------------------------
-# Clase raíz de los Modelos de la App
-# ---------------------------------------------------------------------------
 
 
 class _MetaEntidad(ABCMeta):
@@ -169,16 +144,6 @@ class _MetaEntidad(ABCMeta):
     final, así que un objeto inválido nunca llega a manos de quien lo construyó:
     el `ValueError` sale del constructor.
     """
-
-    # -------------------
-    # ! Quite este metodo porque me quitaba los errores de parametros de constructor en el editor, y no me daba un autocompletado util
-    # ! Por lo mismo, cada entidad debera de llamar a _validar_propiedades() individualmente
-    # -------------------
-
-    # def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-    #     instancia = super().__call__(*args, **kwargs)
-    #     instancia._validar_propiedades()
-    #     return instancia
 
 
 class Entidad(ABC, metaclass=_MetaEntidad):
@@ -197,7 +162,6 @@ class Entidad(ABC, metaclass=_MetaEntidad):
        repositorio puede pasar los valores crudos de la fila sin convertirlos.
     """
 
-    #: Atributos que forman la llave primaria, esto es mas que nada para los mensajes de error, NO deberia de usarse para obtener los id de una entidad.
     _CAMPOS_CLAVE: ClassVar[tuple[str, ...]] = ()
 
 
@@ -213,7 +177,6 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         es privado pue...
         """
 
-    # -- identidad ---------------------------------------------------------
 
     @property
     def clave(self) -> Any:
@@ -239,7 +202,6 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         clave = self.clave
         return id(self) if clave is None else hash((type(self).__name__, clave))
 
-    # -- apoyo para los validadores ----------------------------------------
 
     def _descripcion(self) -> str:
         clave = self.clave
@@ -262,7 +224,6 @@ class Entidad(ABC, metaclass=_MetaEntidad):
             self._fallar(campo, valor, "es obligatorio (NOT NULL en el DDL)")
         return valor
 
-    # -- validadores reutilizables -----------------------------------------
 
     def _validar_texto(self, campo: str, maximo: int, *, opcional: bool = False) -> None:
         """TEXT NOT NULL con un CHECK de `length(campo) <= maximo`."""
@@ -421,7 +382,6 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         if faltantes:
             self._fallar(campo, valor, f"le faltan las llaves: {', '.join(faltantes)}")
 
-    # -- utilidades para las reglas que dependen del día de hoy -------------
 
     @staticmethod
     def _hoy() -> date:

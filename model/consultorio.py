@@ -33,5 +33,4 @@ class Consultorio (EspacioFisico) :
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
 
-        # chk_cons_departamento
         self._validar_texto('departamento', 100)

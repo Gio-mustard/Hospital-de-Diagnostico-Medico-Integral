@@ -59,9 +59,6 @@ class Paciente(DerechoHabiente):
         super()._validar_propiedades()
         self._validar_clave_propia('id_paciente')
 
-        # La FK id_derechohabiente es NOT NULL UNIQUE, pero queda en None
-        # mientras no se inserte al derechohabiente que le da origen.
         self._validar_llave_foranea('id_derechohabiente', opcional=True)
 
-        # chk_paciente_sangre
         self._validar_enum('tipo_sangre', TiposSangre, opcional=True)

@@ -23,9 +23,6 @@ class Usuario(Entidad):
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
 
-        # id TEXT PRIMARY KEY: es un UUID que trae quien crea el usuario, no un
-        # AUTOINCREMENT, asi que se valida como texto de 36 caracteres y no con
-        # _validar_clave_propia, que exige un entero >= 1 y rechazaba todo UUID.
         self._validar_texto('id', LONGITUD_UUID)
         if len(self.id) != LONGITUD_UUID:
             self._fallar(

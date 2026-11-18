@@ -3,7 +3,6 @@ import json
 from model.receta import Receta
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Receta.
 COLUMNAS = (
     "id_receta",
     "id_cita",
@@ -11,7 +10,6 @@ COLUMNAS = (
     "fecha_emision",
     "tratamiento",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_receta",)
 
 

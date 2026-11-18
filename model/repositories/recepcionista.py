@@ -5,8 +5,6 @@ from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS_SIN_CLAVE as COLUMNAS_DH
 from .derechohabiente import DerechoHabienteSQLRepository
 
-#: Columnas propias de la tabla Recepcionista. `activo` se repite aqui, pero el
-#: valor que se escribe siempre es el heredado del DerechoHabiente.
 COLUMNAS = (
     "id_recepcionista",
     "id_derechohabiente",
@@ -16,16 +14,12 @@ COLUMNAS = (
     "extension_tel",
     "activo",
 )
-#: Columnas propias que se leen: `activo` se lee del DerechoHabiente.
 COLUMNAS_LECTURA = COLUMNAS[:-1]
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_recepcionista",)
 
-#: Lista de SELECT del JOIN con DerechoHabiente.
 SELECT_UNIDO = ", ".join(
     [f"r.{col}" for col in COLUMNAS_LECTURA] + [f"dh.{col}" for col in COLUMNAS_DH]
 )
-#: FROM comun de las lecturas.
 DESDE_UNIDO = """
     FROM Recepcionista r
     INNER JOIN DerechoHabiente dh ON r.id_derechohabiente = dh.id_derechohabiente
@@ -123,7 +117,6 @@ class RecepcionistaSQLRepository(Repositorio):
 
         if not self._dh_repo.darbaja(recep):
             return False
-        # La columna `activo` de Recepcionista refleja la del DerechoHabiente.
         self.db.execute(
             "UPDATE Recepcionista SET activo = 0 WHERE id_derechohabiente = ?",
             (recep.id_derechohabiente,),

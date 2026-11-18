@@ -60,7 +60,7 @@ class Trabajador(DerechoHabiente):
 
     @property
     def antiguedad_en_anios(self) -> int:
-        ingreso: date = self.fecha_ingreso  # ya normalizado por la validación
+        ingreso: date = self.fecha_ingreso
         hoy = self._hoy()
         cumplio = (hoy.month, hoy.day) >= (ingreso.month, ingreso.day)
         return hoy.year - ingreso.year - (0 if cumplio else 1)
@@ -70,19 +70,14 @@ class Trabajador(DerechoHabiente):
         self._validar_clave_propia('id_trabajador')
         self._validar_llave_foranea('id_derechohabiente', opcional=True)
 
-        # chk_trab_num_emp
         self._validar_patron(
             'numero_empleado', PATRON_NUMERO_EMPLEADO, "'EMP-' y al menos 4 dígitos"
         )
 
-        # chk_trab_departamento
         self._validar_texto('departamento', 100)
 
-        # chk_trab_fecha_ing + trg_trab_fecha_ing_ins / _upd
         self._validar_fecha('fecha_ingreso', maxima=self._hoy())
 
-        # Regla de congruencia que el DDL no puede expresar: nadie entra a
-        # trabajar antes de nacer.
         if self.fecha_ingreso < self.fecha_nacimiento:
             self._fallar(
                 'fecha_ingreso',

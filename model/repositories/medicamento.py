@@ -1,7 +1,6 @@
 from model.medicamento import Medicamento
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Medicamento.
 COLUMNAS = (
     "id_medicamento",
     "nombre",
@@ -12,7 +11,6 @@ COLUMNAS = (
     "disponible",
     "proximo_pedido",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_medicamento",)
 
 

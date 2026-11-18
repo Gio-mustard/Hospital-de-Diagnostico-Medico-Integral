@@ -4,7 +4,6 @@ from model.cita import Cita
 from model.constants import EstadosCita
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Cita.
 COLUMNAS = (
     "id_cita",
     "id_paciente",
@@ -16,7 +15,6 @@ COLUMNAS = (
     "estado",
     "diagnostico",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_cita",)
 
 

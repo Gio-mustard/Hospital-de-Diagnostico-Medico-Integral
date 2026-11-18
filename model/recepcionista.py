@@ -68,9 +68,7 @@ class Recepcionista(DerechoHabiente):
         self._validar_llave_foranea('id_derechohabiente', opcional=True)
         self._validar_llave_foranea('id_trabajador', opcional=True)
 
-        # chk_recep_turno
         self._validar_enum('turno', Turnos)
 
-        # chk_recep_longitudes
         self._validar_texto('modulo_atencion', 50)
         self._validar_texto('extension_tel', 10, opcional=True)

@@ -3,7 +3,6 @@ from datetime import datetime
 from model.ingreso import Ingreso
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Ingreso.
 COLUMNAS = (
     "id_ingreso",
     "fecha_ingreso",
@@ -12,7 +11,6 @@ COLUMNAS = (
     "num_habitacion",
     "id_recepcionista",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_ingreso",)
 
 

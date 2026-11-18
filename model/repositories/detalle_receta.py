@@ -1,9 +1,7 @@
 from model.detalle_receta import DetalleReceta
 from .repositorio import Repositorio
 
-#: Columnas de la tabla DetalleReceta.
 COLUMNAS = ("id_receta", "id_medicamento", "dosis_indicaciones")
-#: Llave primaria compuesta.
 CLAVE = ("id_receta", "id_medicamento")
 
 

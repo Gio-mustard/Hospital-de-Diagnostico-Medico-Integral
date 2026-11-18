@@ -5,17 +5,12 @@ from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS_SIN_CLAVE as COLUMNAS_DH
 from .derechohabiente import DerechoHabienteSQLRepository
 
-#: Columnas propias de la tabla Paciente (no tiene columna `activo`).
 COLUMNAS = ("id_paciente", "id_derechohabiente", "tipo_sangre")
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_paciente",)
 
-#: Lista de SELECT del JOIN con DerechoHabiente: lo propio del paciente mas los
-#: datos heredados de la persona.
 SELECT_UNIDO = ", ".join(
     [f"p.{col}" for col in COLUMNAS] + [f"dh.{col}" for col in COLUMNAS_DH]
 )
-#: FROM comun de las lecturas.
 DESDE_UNIDO = """
     FROM Paciente p
     INNER JOIN DerechoHabiente dh ON p.id_derechohabiente = dh.id_derechohabiente

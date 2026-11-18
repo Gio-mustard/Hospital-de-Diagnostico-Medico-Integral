@@ -10,7 +10,7 @@ class Database():
         """Establece la conexión a la base de datos."""
         if self._connection is None:
             self._connection = sqlite3.connect(self.db_file)
-            self._connection.row_factory = sqlite3.Row  # Para obtener resultados como diccionarios
+            self._connection.row_factory = sqlite3.Row
 
     def close(self):
         """Cierra la conexión a la base de datos."""

@@ -3,9 +3,7 @@ from enum import Enum
 from model.habitacion import Habitacion
 from .repositorio import Repositorio
 
-#: Columnas de la tabla Habitacion.
 COLUMNAS = ("num_habitacion", "piso", "tipo", "estado")
-#: Llave primaria manual (sin AUTOINCREMENT).
 CLAVE = ("num_habitacion",)
 
 

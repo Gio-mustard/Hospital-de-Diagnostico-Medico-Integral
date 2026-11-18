@@ -3,7 +3,6 @@ from enum import Enum
 from model.ingreso_emergencia import IngresoEmergencia
 from .repositorio import Repositorio
 
-#: Columnas de la tabla IngresoEmergencia.
 COLUMNAS = (
     "id_ingreso_emergencia",
     "id_paciente",
@@ -15,7 +14,6 @@ COLUMNAS = (
     "nivel_urgencia",
     "diagnostico",
 )
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_ingreso_emergencia",)
 
 

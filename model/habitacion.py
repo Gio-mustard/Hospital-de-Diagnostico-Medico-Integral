@@ -33,5 +33,4 @@ class Habitacion(EspacioFisico):
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
 
-        # chk_hab_tipo
         self._validar_enum('tipo', TiposHabitacion)

@@ -3,7 +3,6 @@ from enum import Enum
 from model.derechohabiente import DerechoHabiente
 from .repositorio import Repositorio
 
-#: Columnas de la tabla DerechoHabiente.
 COLUMNAS = (
     "id_derechohabiente",
     "auth_user_id",
@@ -20,10 +19,7 @@ COLUMNAS = (
     "curp",
     "activo",
 )
-#: Las mismas columnas sin la llave primaria, para los JOIN de las tablas hijas
-#: que ya traen su propio `id_derechohabiente`.
 COLUMNAS_SIN_CLAVE = COLUMNAS[1:]
-#: Llave primaria AUTOINCREMENT.
 CLAVE = ("id_derechohabiente",)
 
 

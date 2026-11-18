@@ -39,13 +39,10 @@ class Receta(Entidad):
         self._validar_llave_foranea('id_cita', opcional=True)
         self._validar_llave_foranea('id_ingreso_emergencia', opcional=True)
 
-        # chk_receta_fecha
         self._validar_fecha('fecha_emision')
 
-        # chk_receta_json_estructura
         self._validar_json('tratamiento', dict, claves=CLAVES_TRATAMIENTO)
 
-        # chk_receta_xor_origen: exactamente uno de los dos orígenes
         origenes = (self.id_cita is not None) + (self.id_ingreso_emergencia is not None)
         if origenes != 1:
             self._fallar(
