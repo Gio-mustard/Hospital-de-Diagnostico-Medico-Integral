@@ -170,10 +170,15 @@ class _MetaEntidad(ABCMeta):
     el `ValueError` sale del constructor.
     """
 
-    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-        instancia = super().__call__(*args, **kwargs)
-        instancia._validar_propiedades()
-        return instancia
+    # -------------------
+    # ! Quite este metodo porque me quitaba los errores de parametros de constructor en el editor, y no me daba un autocompletado util
+    # ! Por lo mismo, cada entidad debera de llamar a _validar_propiedades() individualmente
+    # -------------------
+
+    # def __call__(cls, *args: Any, **kwargs: Any) -> Any:
+    #     instancia = super().__call__(*args, **kwargs)
+    #     instancia._validar_propiedades()
+    #     return instancia
 
 
 class Entidad(ABC, metaclass=_MetaEntidad):
@@ -192,8 +197,9 @@ class Entidad(ABC, metaclass=_MetaEntidad):
        repositorio puede pasar los valores crudos de la fila sin convertirlos.
     """
 
-    #: Atributos que forman la llave primaria, esto es mas que nada para los mensajes de error.
+    #: Atributos que forman la llave primaria, esto es mas que nada para los mensajes de error, NO deberia de usarse para obtener los id de una entidad.
     _CAMPOS_CLAVE: ClassVar[tuple[str, ...]] = ()
+
 
     @abstractmethod
     def _validar_propiedades(self) -> None:
@@ -203,6 +209,8 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         Python aplica *name mangling* y el método de la hija se llamaría
         `_Hija__validar_propiedades`, con lo que no implementaría el método
         abstracto ni podría encadenarse con `super()`.
+
+        es privado pue...
         """
 
     # -- identidad ---------------------------------------------------------
