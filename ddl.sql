@@ -413,6 +413,56 @@ CREATE TABLE DetalleReceta (
 ) STRICT;
 
 -- =====================================================================
+-- ÍNDICES SOBRE EL LADO HIJO DE LAS LLAVES FORÁNEAS
+--
+-- SQLite indexa solo la PK y los UNIQUE. El lado que REFERENCIA nunca se
+-- indexa por su cuenta, y eso cuesta en dos momentos:
+--
+--   1. Al borrar un padre. Para hacer valer el ON DELETE RESTRICT, SQLite
+--      tiene que buscar si queda algún hijo apuntándole; sin índice, recorre
+--      la tabla hija completa.
+--   2. Al consultar los hijos de alguien ("las citas de este paciente").
+--
+-- Van todos juntos aquí, y no junto a su tabla, porque un índice solo se puede
+-- crear después de la tabla que indexa y varias de estas se declaran al final.
+-- No hacen falta DROP INDEX al principio del archivo: al borrar una tabla se
+-- van con ella.
+--
+-- NO están aquí las que ya quedan cubiertas por otro índice: las FK que son
+-- UNIQUE (Paciente/Trabajador/Recepcionista.id_derechohabiente,
+-- Medico/Enfermero/Recepcionista.id_trabajador, Ingreso.id_cita,
+-- DerechoHabiente.auth_user_id), las que son la primera columna de una PK
+-- compuesta (DetalleReceta.id_receta, MedicoEspecialidad.id_medico,
+-- EnfermeroEspecialidad.id_enfermero) y HistorialMedico.id_paciente, que tiene
+-- su propio CREATE INDEX junto a la tabla.
+-- =====================================================================
+
+-- Las que hoy evitan un recorrido completo en un DELETE que el código ya hace:
+-- Especialidad, Habitacion, Consultorio e IngresoEmergencia se borran de verdad.
+CREATE INDEX idx_medesp_esp ON MedicoEspecialidad (id_esp);
+CREATE INDEX idx_enfesp_esp ON EnfermeroEspecialidad (id_esp);
+CREATE INDEX idx_ingreso_hab ON Ingreso (num_habitacion);
+CREATE INDEX idx_emergencia_hab ON IngresoEmergencia (num_habitacion);
+CREATE INDEX idx_cita_consultorio ON Cita (num_consultorio);
+CREATE INDEX idx_receta_emergencia ON Receta (id_ingreso_emergencia);
+
+-- Las que sirven para consultar por el padre: el expediente de un paciente,
+-- la agenda de un médico, las recetas de una cita.
+CREATE INDEX idx_cita_paciente ON Cita (id_paciente);
+CREATE INDEX idx_cita_medico ON Cita (id_medico);
+CREATE INDEX idx_emergencia_paciente ON IngresoEmergencia (id_paciente);
+CREATE INDEX idx_emergencia_medico ON IngresoEmergencia (id_medico);
+CREATE INDEX idx_historial_medico ON HistorialMedico (id_medico);
+CREATE INDEX idx_receta_cita ON Receta (id_cita);
+CREATE INDEX idx_detalle_medicamento ON DetalleReceta (id_medicamento);
+
+-- Quién atendió en recepción: solo para reportes, pero completa el juego.
+CREATE INDEX idx_cita_recepcionista ON Cita (id_recepcionista);
+CREATE INDEX idx_ingreso_recepcionista ON Ingreso (id_recepcionista);
+CREATE INDEX idx_emergencia_recepcionista ON IngresoEmergencia (id_recepcionista);
+
+
+-- =====================================================================
 -- TRIGGERS: validaciones que dependen de la fecha actual.
 -- SQLite no permite date('now') ni CURRENT_DATE dentro de un CHECK.
 -- Solo se validan al insertar o al cambiar la columna, igual que en Postgres.
