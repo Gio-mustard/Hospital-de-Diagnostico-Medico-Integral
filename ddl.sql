@@ -44,15 +44,15 @@ CREATE TABLE Usuario(
     correo TEXT NOT NULL UNIQUE,
     rol TEXT NOT NULL,
     activo INTEGER NOT NULL DEFAULT 1,
-    CONSTRAINT chk_usuario_rol CHECK (rol IN ('DerechoHabiente', 'Paciente', 'Trabajador', 'Recepcionista', 'Medico', 'Enfermero')),
+    CONSTRAINT chk_usuario_rol CHECK (rol IN ('Administrador', 'Recepcionista', 'Médico', 'Enfermero')),
     CONSTRAINT chk_usuario_activo CHECK (activo IN (0, 1)),
-    CONSTRAINT chk_usuario_auth_uuid CHECK (length(auth_user_id) = 36),
+    CONSTRAINT chk_usuario_id_uuid CHECK (length(id) = 32),
     CONSTRAINT chk_usuario_correo CHECK (correo GLOB '*@*.*' AND length(correo) <= 150)
 ) STRICT;
 
 CREATE TABLE DerechoHabiente (
     id_derechohabiente INTEGER PRIMARY KEY AUTOINCREMENT,
-    usuario_id TEXT UNIQUE,                -- Antes FK a auth.users (Supabase); aquí no existe
+    auth_user_id TEXT UNIQUE,              -- FK opcional al Usuario que puede iniciar sesión como esta persona
     nombres TEXT NOT NULL,
     apellido_paterno TEXT NOT NULL,
     apellido_materno TEXT,
@@ -66,7 +66,7 @@ CREATE TABLE DerechoHabiente (
     curp TEXT NOT NULL UNIQUE,
     activo INTEGER NOT NULL DEFAULT 1,
 
-    FOREIGN KEY (usuario_id) REFERENCES Usuario (id) ON DELETE RESTRICT,
+    FOREIGN KEY (auth_user_id) REFERENCES Usuario (id) ON DELETE RESTRICT,
 
     -- Longitudes de los VARCHAR(n) originales (SQLite no las aplica solo)
     CONSTRAINT chk_dh_longitudes CHECK (
@@ -75,7 +75,7 @@ CREATE TABLE DerechoHabiente (
         AND length(direccion_calle) <= 100
         AND length(ciudad) <= 50 AND length(estado) <= 50
     ),
-    CONSTRAINT chk_dh_auth_uuid CHECK (auth_user_id IS NULL OR length(auth_user_id) = 36),
+    CONSTRAINT chk_dh_auth_uuid CHECK (auth_user_id IS NULL OR length(auth_user_id) = 32),
     -- '^[0-9]{5}$'
     CONSTRAINT chk_dh_cp CHECK (length(codigo_postal) = 5 AND codigo_postal NOT GLOB '*[^0-9]*'),
     -- La parte "<= hoy" vive en un trigger (SQLite prohíbe la fecha actual en CHECK)
