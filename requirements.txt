@@ -8,3 +8,6 @@ supabase==2.34.1
 #
 # NOTA: SQLite NO se instala. Se usa el modulo sqlite3 de la libreria
 # estandar de Python (ver docs/sqlite3.md).
+#
+# Hash de contrasenas (bcrypt con salt incrustado) para el login
+bcrypt==5.0.0
