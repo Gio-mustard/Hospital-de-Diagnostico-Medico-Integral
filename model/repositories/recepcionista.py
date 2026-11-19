@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from enum import Enum
 
 from model.recepcionista import Recepcionista
@@ -26,7 +27,42 @@ DESDE_UNIDO = """
 """
 
 
-class RecepcionistaSQLRepository(Repositorio):
+class RecepcionistaRepositorio(Repositorio):
+    """Contrato del repositorio de recepcionistas.
+
+    Fija sobre una Recepcionista las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_recepcionista: int) -> Recepcionista | None:
+        """Obtiene una recepcionista por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todas las recepcionistas."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Recepcionista) -> Recepcionista:
+        """Persiste una recepcionista nueva y la devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Recepcionista) -> bool:
+        """Inserta la recepcionista recibida o actualiza la que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Recepcionista) -> bool:
+        """Da de baja la recepcionista recibida."""
+        ...
+
+
+class RecepcionistaSQLRepository(RecepcionistaRepositorio):
     """Repositorio de recepcionistas."""
 
     @property
@@ -68,57 +104,63 @@ class RecepcionistaSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, recep: Recepcionista) -> Recepcionista:
+    def registrar(self, entidad: Recepcionista) -> Recepcionista:
         """Registra una recepcionista (y su DerechoHabiente si aun no existe)."""
-        recep._validar_propiedades()
-        if recep.id_derechohabiente is None:
-            self._dh_repo.registrar(recep)
+        with self.db.transaccion():
+            recep = entidad
+            recep._validar_propiedades()
+            if recep.id_derechohabiente is None:
+                self._dh_repo.registrar(recep)
 
-        fila = self._a_fila(recep)
-        sql = """
-            INSERT INTO Recepcionista (
-                id_derechohabiente, id_trabajador, turno, modulo_atencion, extension_tel
-            ) VALUES (?, ?, ?, ?, ?)
-        """
-        cursor = self.db.execute(
-            sql,
-            (
-                fila["id_derechohabiente"],
-                fila["id_trabajador"],
-                fila["turno"],
-                fila["modulo_atencion"],
-                fila["extension_tel"],
-            ),
-        )
-        recep.id_recepcionista = cursor.lastrowid
-        return recep
-
-    def guardar(self, recep: Recepcionista) -> bool:
-        """Guarda a la recepcionista completa: primero su DerechoHabiente, luego su tabla."""
-        recep._validar_propiedades()
-        self._dh_repo.guardar(recep)
-        cursor = self._upsert("Recepcionista", self._a_fila(recep), CLAVE)
-        if recep.id_recepcionista is None:
+            fila = self._a_fila(recep)
+            sql = """
+                INSERT INTO Recepcionista (
+                    id_derechohabiente, id_trabajador, turno, modulo_atencion, extension_tel
+                ) VALUES (?, ?, ?, ?, ?)
+            """
+            cursor = self.db.execute(
+                sql,
+                (
+                    fila["id_derechohabiente"],
+                    fila["id_trabajador"],
+                    fila["turno"],
+                    fila["modulo_atencion"],
+                    fila["extension_tel"],
+                ),
+            )
             recep.id_recepcionista = cursor.lastrowid
-        return cursor.rowcount > 0
+            return recep
 
-    def darbaja(self, recep: Recepcionista) -> bool:
-        """Da de baja logica a la recepcionista recibida, via su DerechoHabiente."""
-        if recep.id_derechohabiente is None:
+    def guardar(self, entidad: Recepcionista) -> bool:
+        """Guarda a la recepcionista completa: primero su DerechoHabiente, luego su tabla."""
+        with self.db.transaccion():
+            recep = entidad
+            recep._validar_propiedades()
+            self._dh_repo.guardar(recep)
+            cursor = self._upsert("Recepcionista", self._a_fila(recep), CLAVE)
             if recep.id_recepcionista is None:
-                return False
-            row = self.db.execute(
-                "SELECT id_derechohabiente FROM Recepcionista WHERE id_recepcionista = ?",
-                (recep.id_recepcionista,),
-            ).fetchone()
-            if not row:
-                return False
-            recep.id_derechohabiente = row["id_derechohabiente"]
+                recep.id_recepcionista = cursor.lastrowid
+            return cursor.rowcount > 0
 
-        if not self._dh_repo.darbaja(recep):
-            return False
-        self.db.execute(
-            "UPDATE Recepcionista SET activo = 0 WHERE id_derechohabiente = ?",
-            (recep.id_derechohabiente,),
-        )
-        return True
+    def darbaja(self, entidad: Recepcionista) -> bool:
+        """Da de baja logica a la recepcionista recibida, via su DerechoHabiente."""
+        with self.db.transaccion():
+            recep = entidad
+            if recep.id_derechohabiente is None:
+                if recep.id_recepcionista is None:
+                    return False
+                row = self.db.execute(
+                    "SELECT id_derechohabiente FROM Recepcionista WHERE id_recepcionista = ?",
+                    (recep.id_recepcionista,),
+                ).fetchone()
+                if not row:
+                    return False
+                recep.id_derechohabiente = row["id_derechohabiente"]
+
+            if not self._dh_repo.darbaja(recep):
+                return False
+            self.db.execute(
+                "UPDATE Recepcionista SET activo = 0 WHERE id_derechohabiente = ?",
+                (recep.id_derechohabiente,),
+            )
+            return True

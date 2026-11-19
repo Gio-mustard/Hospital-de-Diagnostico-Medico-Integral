@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from model.atencion_medica import AtencionMedica
 from model.cita import Cita
 from model.ingreso_emergencia import IngresoEmergencia
@@ -6,7 +8,42 @@ from .cita import CitaSQLRepository
 from .ingreso_emergencia import IngresoEmergenciaSQLRepository
 
 
-class AtencionMedicaSQLRepository(Repositorio):
+class AtencionMedicaRepositorio(Repositorio):
+    """Contrato del repositorio de atenciones medicas.
+
+    Fija sobre una AtencionMedica las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_atencion: int, es_emergencia: bool = False) -> Cita | IngresoEmergencia | None:
+        """Obtiene una atencion medica por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todas las atenciones medicas."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: AtencionMedica) -> AtencionMedica:
+        """Persiste una atencion medica nueva y la devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: AtencionMedica) -> bool:
+        """Inserta la atencion medica recibida o actualiza la que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: AtencionMedica) -> bool:
+        """Da de baja la atencion medica recibida."""
+        ...
+
+
+class AtencionMedicaSQLRepository(AtencionMedicaRepositorio):
     """Repositorio fachada para las especializaciones de AtencionMedica (Cita e IngresoEmergencia)."""
 
     @property
@@ -39,14 +76,17 @@ class AtencionMedicaSQLRepository(Repositorio):
         """Retorna la tupla con todas las atenciones: primero las citas, luego las emergencias."""
         return self._cita_repo.obtener_todos() + self._emergencia_repo.obtener_todos()
 
-    def registrar(self, atencion: AtencionMedica) -> AtencionMedica:
+    def registrar(self, entidad: AtencionMedica) -> AtencionMedica:
         """Registra una Cita o un IngresoEmergencia segun el tipo recibido."""
+        atencion = entidad
         return self._repo_de(atencion).registrar(atencion)
 
-    def guardar(self, atencion: AtencionMedica) -> bool:
+    def guardar(self, entidad: AtencionMedica) -> bool:
         """Hace upsert de la Cita o del IngresoEmergencia recibido."""
+        atencion = entidad
         return self._repo_de(atencion).guardar(atencion)
 
-    def darbaja(self, atencion: AtencionMedica) -> bool:
+    def darbaja(self, entidad: AtencionMedica) -> bool:
         """Da de baja la Cita o el IngresoEmergencia recibido."""
+        atencion = entidad
         return self._repo_de(atencion).darbaja(atencion)

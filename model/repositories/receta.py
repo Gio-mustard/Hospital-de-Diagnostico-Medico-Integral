@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import json
 
 from model.receta import Receta
@@ -13,7 +14,42 @@ COLUMNAS = (
 CLAVE = ("id_receta",)
 
 
-class RecetaSQLRepository(Repositorio):
+class RecetaRepositorio(Repositorio):
+    """Contrato del repositorio de recetas.
+
+    Fija sobre una Receta las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_receta: int) -> Receta | None:
+        """Obtiene una receta por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todas las recetas."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Receta) -> Receta:
+        """Persiste una receta nueva y la devuelve con su id_receta asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Receta) -> bool:
+        """Inserta la receta recibida o actualiza la que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Receta) -> bool:
+        """Da de baja la receta recibida."""
+        ...
+
+
+class RecetaSQLRepository(RecetaRepositorio):
     """Repositorio de recetas."""
 
     @staticmethod
@@ -58,8 +94,9 @@ class RecetaSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, receta: Receta) -> Receta:
+    def registrar(self, entidad: Receta) -> Receta:
         """Inserta una nueva receta medica."""
+        receta = entidad
         receta._validar_propiedades()
         fila = self._a_fila(receta)
 
@@ -80,16 +117,18 @@ class RecetaSQLRepository(Repositorio):
         receta.id_receta = cursor.lastrowid
         return receta
 
-    def guardar(self, receta: Receta) -> bool:
+    def guardar(self, entidad: Receta) -> bool:
         """Inserta la receta o actualiza la existente (upsert por id_receta)."""
+        receta = entidad
         receta._validar_propiedades()
         cursor = self._upsert("Receta", self._a_fila(receta), CLAVE)
         if receta.id_receta is None:
             receta.id_receta = cursor.lastrowid
         return cursor.rowcount > 0
 
-    def darbaja(self, receta: Receta) -> bool:
+    def darbaja(self, entidad: Receta) -> bool:
         """Elimina la receta recibida."""
+        receta = entidad
         if receta.id_receta is None:
             return False
         sql = "DELETE FROM Receta WHERE id_receta = ?"

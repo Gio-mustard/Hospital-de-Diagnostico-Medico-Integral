@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import json
 from enum import Enum
 
@@ -18,7 +19,42 @@ COLUMNAS = (
 CLAVE = ("id_historial",)
 
 
-class HistorialMedicoSQLRepository(Repositorio):
+class HistorialMedicoRepositorio(Repositorio):
+    """Contrato del repositorio de historiales medicos.
+
+    Fija sobre un HistorialMedico las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_historial: int) -> HistorialMedico | None:
+        """Obtiene un historial medico por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los historiales medicos."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: HistorialMedico) -> HistorialMedico:
+        """Persiste un historial medico nuevo y lo devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: HistorialMedico) -> bool:
+        """Inserta el historial medico recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: HistorialMedico) -> bool:
+        """Da de baja el historial medico recibido."""
+        ...
+
+
+class HistorialMedicoSQLRepository(HistorialMedicoRepositorio):
     """Repositorio de historiales medicos."""
 
     @staticmethod
@@ -87,8 +123,9 @@ class HistorialMedicoSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, historial: HistorialMedico) -> HistorialMedico:
+    def registrar(self, entidad: HistorialMedico) -> HistorialMedico:
         """Registra un documento en el historial medico."""
+        historial = entidad
         historial._validar_propiedades()
         fila = self._a_fila(historial)
 
@@ -130,16 +167,18 @@ class HistorialMedicoSQLRepository(Repositorio):
         historial.id_historial = cursor.lastrowid
         return historial
 
-    def guardar(self, historial: HistorialMedico) -> bool:
+    def guardar(self, entidad: HistorialMedico) -> bool:
         """Inserta el historial o actualiza el existente (upsert por id_historial)."""
+        historial = entidad
         historial._validar_propiedades()
         cursor = self._upsert("HistorialMedico", self._a_fila(historial), CLAVE)
         if historial.id_historial is None:
             historial.id_historial = cursor.lastrowid
         return cursor.rowcount > 0
 
-    def darbaja(self, historial: HistorialMedico) -> bool:
+    def darbaja(self, entidad: HistorialMedico) -> bool:
         """Elimina el registro de historial medico recibido."""
+        historial = entidad
         if historial.id_historial is None:
             return False
         sql = "DELETE FROM HistorialMedico WHERE id_historial = ?"

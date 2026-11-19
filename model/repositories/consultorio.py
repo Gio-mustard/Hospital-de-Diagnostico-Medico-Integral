@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from enum import Enum
 
 from model.consultorio import Consultorio
@@ -7,7 +8,42 @@ COLUMNAS = ("num_consultorio", "piso", "departamento", "estado")
 CLAVE = ("num_consultorio",)
 
 
-class ConsultorioSQLRepository(Repositorio):
+class ConsultorioRepositorio(Repositorio):
+    """Contrato del repositorio de consultorios.
+
+    Fija sobre un Consultorio las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, num_consultorio: int) -> Consultorio | None:
+        """Obtiene un consultorio por su numero, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los consultorios."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Consultorio) -> Consultorio:
+        """Persiste un consultorio nuevo y lo devuelve."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Consultorio) -> bool:
+        """Inserta el consultorio recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Consultorio) -> bool:
+        """Da de baja el consultorio recibido."""
+        ...
+
+
+class ConsultorioSQLRepository(ConsultorioRepositorio):
     """Repositorio de consultorios."""
 
     @staticmethod
@@ -44,8 +80,9 @@ class ConsultorioSQLRepository(Repositorio):
         sql = f"SELECT {', '.join(COLUMNAS)} FROM Consultorio ORDER BY num_consultorio"
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, consultorio: Consultorio) -> Consultorio:
+    def registrar(self, entidad: Consultorio) -> Consultorio:
         """Registra un consultorio con su PK manual num_consultorio."""
+        consultorio = entidad
         consultorio._validar_propiedades()
         fila = self._a_fila(consultorio)
         sql = """
@@ -63,14 +100,16 @@ class ConsultorioSQLRepository(Repositorio):
         )
         return consultorio
 
-    def guardar(self, consultorio: Consultorio) -> bool:
+    def guardar(self, entidad: Consultorio) -> bool:
         """Inserta el consultorio o actualiza el existente (upsert por numero)."""
+        consultorio = entidad
         consultorio._validar_propiedades()
         cursor = self._upsert("Consultorio", self._a_fila(consultorio), CLAVE)
         return cursor.rowcount > 0
 
-    def darbaja(self, consultorio: Consultorio) -> bool:
+    def darbaja(self, entidad: Consultorio) -> bool:
         """Elimina el consultorio recibido."""
+        consultorio = entidad
         if consultorio.num_consultorio is None:
             return False
         sql = "DELETE FROM Consultorio WHERE num_consultorio = ?"

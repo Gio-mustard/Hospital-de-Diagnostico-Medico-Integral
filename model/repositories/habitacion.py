@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from enum import Enum
 
 from model.habitacion import Habitacion
@@ -7,7 +8,42 @@ COLUMNAS = ("num_habitacion", "piso", "tipo", "estado")
 CLAVE = ("num_habitacion",)
 
 
-class HabitacionSQLRepository(Repositorio):
+class HabitacionRepositorio(Repositorio):
+    """Contrato del repositorio de habitaciones.
+
+    Fija sobre una Habitacion las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, num_habitacion: int) -> Habitacion | None:
+        """Obtiene una habitacion por su numero, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todas las habitaciones."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Habitacion) -> Habitacion:
+        """Persiste una habitacion nueva y la devuelve."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Habitacion) -> bool:
+        """Inserta la habitacion recibida o actualiza la que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Habitacion) -> bool:
+        """Da de baja la habitacion recibida."""
+        ...
+
+
+class HabitacionSQLRepository(HabitacionRepositorio):
     """Repositorio de habitaciones."""
 
     @staticmethod
@@ -48,8 +84,9 @@ class HabitacionSQLRepository(Repositorio):
         sql = f"SELECT {', '.join(COLUMNAS)} FROM Habitacion ORDER BY num_habitacion"
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, habitacion: Habitacion) -> Habitacion:
+    def registrar(self, entidad: Habitacion) -> Habitacion:
         """Registra una habitacion con su PK manual num_habitacion."""
+        habitacion = entidad
         habitacion._validar_propiedades()
         fila = self._a_fila(habitacion)
         sql = """
@@ -62,14 +99,16 @@ class HabitacionSQLRepository(Repositorio):
         )
         return habitacion
 
-    def guardar(self, habitacion: Habitacion) -> bool:
+    def guardar(self, entidad: Habitacion) -> bool:
         """Inserta la habitacion o actualiza la existente (upsert por numero)."""
+        habitacion = entidad
         habitacion._validar_propiedades()
         cursor = self._upsert("Habitacion", self._a_fila(habitacion), CLAVE)
         return cursor.rowcount > 0
 
-    def darbaja(self, habitacion: Habitacion) -> bool:
+    def darbaja(self, entidad: Habitacion) -> bool:
         """Elimina la habitacion recibida."""
+        habitacion = entidad
         if habitacion.num_habitacion is None:
             return False
         sql = "DELETE FROM Habitacion WHERE num_habitacion = ?"

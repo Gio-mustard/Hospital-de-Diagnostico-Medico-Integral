@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from model.trabajador import Trabajador
 from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS_SIN_CLAVE as COLUMNAS_DH
@@ -23,7 +25,42 @@ DESDE_UNIDO = """
 """
 
 
-class TrabajadorSQLRepository(Repositorio):
+class TrabajadorRepositorio(Repositorio):
+    """Contrato del repositorio de trabajadores.
+
+    Fija sobre un Trabajador las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_trabajador: int) -> Trabajador | None:
+        """Obtiene un trabajador por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los trabajadores."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Trabajador) -> Trabajador:
+        """Persiste un trabajador nuevo y lo devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Trabajador) -> bool:
+        """Inserta el trabajador recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Trabajador) -> bool:
+        """Da de baja el trabajador recibido."""
+        ...
+
+
+class TrabajadorSQLRepository(TrabajadorRepositorio):
     """Repositorio de trabajadores."""
 
     @property
@@ -65,56 +102,62 @@ class TrabajadorSQLRepository(Repositorio):
         sql = f"SELECT {SELECT_UNIDO} {DESDE_UNIDO} ORDER BY t.numero_empleado"
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, trabajador: Trabajador) -> Trabajador:
+    def registrar(self, entidad: Trabajador) -> Trabajador:
         """Registra un trabajador (y su DerechoHabiente si aun no existe)."""
-        trabajador._validar_propiedades()
-        if trabajador.id_derechohabiente is None:
-            self._dh_repo.registrar(trabajador)
+        with self.db.transaccion():
+            trabajador = entidad
+            trabajador._validar_propiedades()
+            if trabajador.id_derechohabiente is None:
+                self._dh_repo.registrar(trabajador)
 
-        fila = self._a_fila(trabajador)
-        sql = """
-            INSERT INTO Trabajador (
-                id_derechohabiente, numero_empleado, departamento, fecha_ingreso
-            ) VALUES (?, ?, ?, ?)
-        """
-        cursor = self.db.execute(
-            sql,
-            (
-                fila["id_derechohabiente"],
-                fila["numero_empleado"],
-                fila["departamento"],
-                fila["fecha_ingreso"],
-            ),
-        )
-        trabajador.id_trabajador = cursor.lastrowid
-        return trabajador
-
-    def guardar(self, trabajador: Trabajador) -> bool:
-        """Guarda al trabajador completo: primero su DerechoHabiente, luego su propia tabla."""
-        trabajador._validar_propiedades()
-        self._dh_repo.guardar(trabajador)
-        cursor = self._upsert("Trabajador", self._a_fila(trabajador), CLAVE)
-        if trabajador.id_trabajador is None:
+            fila = self._a_fila(trabajador)
+            sql = """
+                INSERT INTO Trabajador (
+                    id_derechohabiente, numero_empleado, departamento, fecha_ingreso
+                ) VALUES (?, ?, ?, ?)
+            """
+            cursor = self.db.execute(
+                sql,
+                (
+                    fila["id_derechohabiente"],
+                    fila["numero_empleado"],
+                    fila["departamento"],
+                    fila["fecha_ingreso"],
+                ),
+            )
             trabajador.id_trabajador = cursor.lastrowid
-        return cursor.rowcount > 0
+            return trabajador
 
-    def darbaja(self, trabajador: Trabajador) -> bool:
-        """Da de baja logica al trabajador recibido, via su DerechoHabiente."""
-        if trabajador.id_derechohabiente is None:
+    def guardar(self, entidad: Trabajador) -> bool:
+        """Guarda al trabajador completo: primero su DerechoHabiente, luego su propia tabla."""
+        with self.db.transaccion():
+            trabajador = entidad
+            trabajador._validar_propiedades()
+            self._dh_repo.guardar(trabajador)
+            cursor = self._upsert("Trabajador", self._a_fila(trabajador), CLAVE)
             if trabajador.id_trabajador is None:
-                return False
-            row = self.db.execute(
-                "SELECT id_derechohabiente FROM Trabajador WHERE id_trabajador = ?",
-                (trabajador.id_trabajador,),
-            ).fetchone()
-            if not row:
-                return False
-            trabajador.id_derechohabiente = row["id_derechohabiente"]
+                trabajador.id_trabajador = cursor.lastrowid
+            return cursor.rowcount > 0
 
-        if not self._dh_repo.darbaja(trabajador):
-            return False
-        self.db.execute(
-            "UPDATE Trabajador SET activo = 0 WHERE id_derechohabiente = ?",
-            (trabajador.id_derechohabiente,),
-        )
-        return True
+    def darbaja(self, entidad: Trabajador) -> bool:
+        """Da de baja logica al trabajador recibido, via su DerechoHabiente."""
+        with self.db.transaccion():
+            trabajador = entidad
+            if trabajador.id_derechohabiente is None:
+                if trabajador.id_trabajador is None:
+                    return False
+                row = self.db.execute(
+                    "SELECT id_derechohabiente FROM Trabajador WHERE id_trabajador = ?",
+                    (trabajador.id_trabajador,),
+                ).fetchone()
+                if not row:
+                    return False
+                trabajador.id_derechohabiente = row["id_derechohabiente"]
+
+            if not self._dh_repo.darbaja(trabajador):
+                return False
+            self.db.execute(
+                "UPDATE Trabajador SET activo = 0 WHERE id_derechohabiente = ?",
+                (trabajador.id_derechohabiente,),
+            )
+            return True

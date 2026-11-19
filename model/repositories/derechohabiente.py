@@ -1,5 +1,6 @@
+from abc import abstractmethod
 from enum import Enum
-
+from datetime import date
 from model.derechohabiente import DerechoHabiente
 from .repositorio import Repositorio
 
@@ -23,7 +24,42 @@ COLUMNAS_SIN_CLAVE = COLUMNAS[1:]
 CLAVE = ("id_derechohabiente",)
 
 
-class DerechoHabienteSQLRepository(Repositorio):
+class DerechoHabienteRepositorio(Repositorio):
+    """Contrato del repositorio de derechohabientes.
+
+    Fija sobre un DerechoHabiente las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_derechohabiente: int) -> DerechoHabiente | None:
+        """Obtiene un derechohabiente por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los derechohabientes."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: DerechoHabiente) -> DerechoHabiente:
+        """Persiste un derechohabiente nuevo y lo devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: DerechoHabiente) -> bool:
+        """Inserta el derechohabiente recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: DerechoHabiente) -> bool:
+        """Da de baja el derechohabiente recibido."""
+        ...
+
+
+class DerechoHabienteSQLRepository(DerechoHabienteRepositorio):
     """Repositorio de derechohabientes."""
 
     @staticmethod
@@ -36,6 +72,7 @@ class DerechoHabienteSQLRepository(Repositorio):
     @staticmethod
     def _a_fila(dh: DerechoHabiente) -> dict:
         """Convierte un DerechoHabiente en columna -> valor listo para SQLite."""
+        
         return {
             "id_derechohabiente": dh.id_derechohabiente,
             "auth_user_id": dh.auth_user_id,
@@ -48,7 +85,7 @@ class DerechoHabienteSQLRepository(Repositorio):
             "estado": dh.estado,
             "fecha_nacimiento": (
                 dh.fecha_nacimiento.isoformat()
-                if hasattr(dh.fecha_nacimiento, "isoformat")
+                if hasattr(dh.fecha_nacimiento, "isoformat") and isinstance(dh.fecha_nacimiento,date)
                 else str(dh.fecha_nacimiento)
             ),
             "genero": dh.genero.value if isinstance(dh.genero, Enum) else dh.genero,
@@ -76,8 +113,9 @@ class DerechoHabienteSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, dh: DerechoHabiente) -> DerechoHabiente:
+    def registrar(self, entidad: DerechoHabiente) -> DerechoHabiente:
         """Inserta un nuevo derechohabiente y asigna su id_derechohabiente."""
+        dh = entidad
         dh._validar_propiedades()
         fila = self._a_fila(dh)
 
@@ -94,16 +132,18 @@ class DerechoHabienteSQLRepository(Repositorio):
         dh.id_derechohabiente = cursor.lastrowid
         return dh
 
-    def guardar(self, dh: DerechoHabiente) -> bool:
+    def guardar(self, entidad: DerechoHabiente) -> bool:
         """Inserta el derechohabiente o actualiza el existente (upsert por id)."""
+        dh = entidad
         dh._validar_propiedades()
         cursor = self._upsert("DerechoHabiente", self._a_fila(dh), CLAVE)
         if dh.id_derechohabiente is None:
             dh.id_derechohabiente = cursor.lastrowid
         return cursor.rowcount > 0
 
-    def darbaja(self, dh: DerechoHabiente) -> bool:
+    def darbaja(self, entidad: DerechoHabiente) -> bool:
         """Da de baja logica (activo = 0) al derechohabiente recibido."""
+        dh = entidad
         if dh.id_derechohabiente is None:
             return False
         sql = "UPDATE DerechoHabiente SET activo = 0 WHERE id_derechohabiente = ?"

@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from model.enfermero import Enfermero
 from .repositorio import Repositorio
 from .derechohabiente import COLUMNAS as COLUMNAS_DH
@@ -20,7 +22,42 @@ DESDE_UNIDO = """
 """
 
 
-class EnfermeroSQLRepository(Repositorio):
+class EnfermeroRepositorio(Repositorio):
+    """Contrato del repositorio de enfermeros.
+
+    Fija sobre un Enfermero las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_enfermero: int) -> Enfermero | None:
+        """Obtiene un enfermero por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los enfermeros."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Enfermero) -> Enfermero:
+        """Persiste un enfermero nuevo y lo devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Enfermero) -> bool:
+        """Inserta el enfermero recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Enfermero) -> bool:
+        """Da de baja el enfermero recibido."""
+        ...
+
+
+class EnfermeroSQLRepository(EnfermeroRepositorio):
     """Repositorio de enfermeros."""
 
     @property
@@ -58,47 +95,53 @@ class EnfermeroSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, enfermero: Enfermero) -> Enfermero:
+    def registrar(self, entidad: Enfermero) -> Enfermero:
         """Registra al enfermero asegurando su registro previo en Trabajador y DerechoHabiente."""
-        enfermero._validar_propiedades()
-        if enfermero.id_trabajador is None:
-            self._trab_repo.registrar(enfermero)
+        with self.db.transaccion():
+            enfermero = entidad
+            enfermero._validar_propiedades()
+            if enfermero.id_trabajador is None:
+                self._trab_repo.registrar(enfermero)
 
-        sql = "INSERT INTO Enfermero (id_trabajador) VALUES (?)"
-        cursor = self.db.execute(sql, (enfermero.id_trabajador,))
-        enfermero.id_enfermero = cursor.lastrowid
-        return enfermero
-
-    def guardar(self, enfermero: Enfermero) -> bool:
-        """Guarda al enfermero completo: primero Trabajador y DerechoHabiente, luego su tabla."""
-        enfermero._validar_propiedades()
-        self._trab_repo.guardar(enfermero)
-        cursor = self._upsert("Enfermero", self._a_fila(enfermero), CLAVE)
-        if enfermero.id_enfermero is None:
+            sql = "INSERT INTO Enfermero (id_trabajador) VALUES (?)"
+            cursor = self.db.execute(sql, (enfermero.id_trabajador,))
             enfermero.id_enfermero = cursor.lastrowid
-        return cursor.rowcount > 0
+            return enfermero
 
-    def darbaja(self, enfermero: Enfermero) -> bool:
-        """Da de baja logica al enfermero recibido, via su DerechoHabiente."""
-        if enfermero.id_derechohabiente is None or enfermero.id_trabajador is None:
+    def guardar(self, entidad: Enfermero) -> bool:
+        """Guarda al enfermero completo: primero Trabajador y DerechoHabiente, luego su tabla."""
+        with self.db.transaccion():
+            enfermero = entidad
+            enfermero._validar_propiedades()
+            self._trab_repo.guardar(enfermero)
+            cursor = self._upsert("Enfermero", self._a_fila(enfermero), CLAVE)
             if enfermero.id_enfermero is None:
-                return False
-            sql_find = """
-                SELECT e.id_trabajador, t.id_derechohabiente
-                FROM Enfermero e
-                INNER JOIN Trabajador t ON e.id_trabajador = t.id_trabajador
-                WHERE e.id_enfermero = ?
-            """
-            row = self.db.execute(sql_find, (enfermero.id_enfermero,)).fetchone()
-            if not row:
-                return False
-            enfermero.id_trabajador = row["id_trabajador"]
-            enfermero.id_derechohabiente = row["id_derechohabiente"]
+                enfermero.id_enfermero = cursor.lastrowid
+            return cursor.rowcount > 0
 
-        if not self._trab_repo.darbaja(enfermero):
-            return False
-        self.db.execute(
-            "UPDATE Enfermero SET activo = 0 WHERE id_trabajador = ?",
-            (enfermero.id_trabajador,),
-        )
-        return True
+    def darbaja(self, entidad: Enfermero) -> bool:
+        """Da de baja logica al enfermero recibido, via su DerechoHabiente."""
+        with self.db.transaccion():
+            enfermero = entidad
+            if enfermero.id_derechohabiente is None or enfermero.id_trabajador is None:
+                if enfermero.id_enfermero is None:
+                    return False
+                sql_find = """
+                    SELECT e.id_trabajador, t.id_derechohabiente
+                    FROM Enfermero e
+                    INNER JOIN Trabajador t ON e.id_trabajador = t.id_trabajador
+                    WHERE e.id_enfermero = ?
+                """
+                row = self.db.execute(sql_find, (enfermero.id_enfermero,)).fetchone()
+                if not row:
+                    return False
+                enfermero.id_trabajador = row["id_trabajador"]
+                enfermero.id_derechohabiente = row["id_derechohabiente"]
+
+            if not self._trab_repo.darbaja(enfermero):
+                return False
+            self.db.execute(
+                "UPDATE Enfermero SET activo = 0 WHERE id_trabajador = ?",
+                (enfermero.id_trabajador,),
+            )
+            return True

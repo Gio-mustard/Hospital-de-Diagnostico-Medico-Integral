@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from model.asignacion_especialidad import (
     AsignacionEspecialidad,
     MedicoEspecialidad,
@@ -15,7 +17,42 @@ def _columnas(col_titular: str) -> tuple[str, ...]:
     return (col_titular,) + COLUMNAS_COMUNES
 
 
-class AsignacionEspecialidadSQLRepository(Repositorio):
+class AsignacionEspecialidadRepositorio(Repositorio):
+    """Contrato del repositorio de asignaciones de especialidad.
+
+    Fija sobre una AsignacionEspecialidad las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_titular: int, id_esp: int, es_enfermero: bool = False) -> MedicoEspecialidad | EnfermeroEspecialidad | None:
+        """Obtiene una asignacion por su PK compuesta, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todas las asignaciones de especialidad."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: AsignacionEspecialidad) -> AsignacionEspecialidad:
+        """Persiste una asignacion de especialidad nueva y la devuelve."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: AsignacionEspecialidad) -> bool:
+        """Inserta la asignacion recibida o actualiza la que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: AsignacionEspecialidad) -> bool:
+        """Da de baja la asignacion de especialidad recibida."""
+        ...
+
+
+class AsignacionEspecialidadSQLRepository(AsignacionEspecialidadRepositorio):
     """Repositorio para MedicoEspecialidad y EnfermeroEspecialidad."""
 
     @staticmethod

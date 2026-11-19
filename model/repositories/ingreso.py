@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from datetime import datetime
 
 from model.ingreso import Ingreso
@@ -14,7 +15,42 @@ COLUMNAS = (
 CLAVE = ("id_ingreso",)
 
 
-class IngresoSQLRepository(Repositorio):
+class IngresoRepositorio(Repositorio):
+    """Contrato del repositorio de ingresos hospitalarios.
+
+    Fija sobre un Ingreso las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_ingreso: int) -> Ingreso | None:
+        """Obtiene un ingreso por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los ingresos hospitalarios."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Ingreso) -> Ingreso:
+        """Persiste un ingreso nuevo y lo devuelve con su id_ingreso asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Ingreso) -> bool:
+        """Inserta el ingreso recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Ingreso) -> bool:
+        """Da de baja (de alta hospitalaria) el ingreso recibido."""
+        ...
+
+
+class IngresoSQLRepository(IngresoRepositorio):
     """Repositorio de ingresos hospitalarios."""
 
     @staticmethod
@@ -57,8 +93,9 @@ class IngresoSQLRepository(Repositorio):
         """
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, ingreso: Ingreso) -> Ingreso:
+    def registrar(self, entidad: Ingreso) -> Ingreso:
         """Registra un nuevo ingreso hospitalario."""
+        ingreso = entidad
         ingreso._validar_propiedades()
         fila = self._a_fila(ingreso)
 
@@ -80,23 +117,34 @@ class IngresoSQLRepository(Repositorio):
         ingreso.id_ingreso = cursor.lastrowid
         return ingreso
 
-    def guardar(self, ingreso: Ingreso) -> bool:
+    def guardar(self, entidad: Ingreso) -> bool:
         """Inserta el ingreso o actualiza el existente (upsert por id_ingreso)."""
+        ingreso = entidad
         ingreso._validar_propiedades()
         cursor = self._upsert("Ingreso", self._a_fila(ingreso), CLAVE)
         if ingreso.id_ingreso is None:
             ingreso.id_ingreso = cursor.lastrowid
         return cursor.rowcount > 0
 
-    def darbaja(self, ingreso: Ingreso) -> bool:
+    def darbaja(self, entidad: Ingreso) -> bool:
         """Da de alta el internamiento recibido asignandole fecha_alta.
 
         Si la entidad ya trae `fecha_alta` se respeta ese valor; si no, se usa
         el momento actual y se refleja de vuelta en la entidad.
+
+        El `replace(microsecond=0)` no es cosmetico: la columna guarda
+        'YYYY-MM-DD HH:MM:SS' y `chk_ingreso_formato` la compara contra
+        `datetime(fecha_alta)`, que descarta los microsegundos. Sin truncar,
+        `datetime.now()` escribiria '...:59.032280' y el CHECK fallaria siempre.
         """
+        ingreso = entidad
         if ingreso.id_ingreso is None:
             return False
-        alta = ingreso.fecha_alta if ingreso.fecha_alta is not None else datetime.now()
+        alta = (
+            ingreso.fecha_alta
+            if ingreso.fecha_alta is not None
+            else datetime.now().replace(microsecond=0)
+        )
         alta_str = alta.isoformat(sep=" ") if hasattr(alta, "isoformat") else str(alta)
         sql = "UPDATE Ingreso SET fecha_alta = ? WHERE id_ingreso = ?"
         cursor = self.db.execute(sql, (alta_str, ingreso.id_ingreso))

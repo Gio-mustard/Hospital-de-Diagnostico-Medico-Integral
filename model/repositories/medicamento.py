@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from model.medicamento import Medicamento
 from .repositorio import Repositorio
 
@@ -14,7 +16,42 @@ COLUMNAS = (
 CLAVE = ("id_medicamento",)
 
 
-class MedicamentoSQLRepository(Repositorio):
+class MedicamentoRepositorio(Repositorio):
+    """Contrato del repositorio de medicamentos.
+
+    Fija sobre un Medicamento las firmas que Repositorio declara en abstracto,
+    para que el resto del sistema dependa de esta interfaz y no de una
+    implementacion concreta: cualquier almacenamiento que la cumpla (SQL, en
+    memoria, un doble de prueba) es intercambiable sin tocar a quien la usa.
+    """
+
+    @abstractmethod
+    def obtener_por_id(self, id_medicamento: int) -> Medicamento | None:
+        """Obtiene un medicamento por su ID, o None si no existe."""
+        ...
+
+    @abstractmethod
+    def obtener_todos(self) -> tuple:
+        """Retorna la tupla con todos los medicamentos."""
+        ...
+
+    @abstractmethod
+    def registrar(self, entidad: Medicamento) -> Medicamento:
+        """Persiste un medicamento nuevo y lo devuelve con su id asignado."""
+        ...
+
+    @abstractmethod
+    def guardar(self, entidad: Medicamento) -> bool:
+        """Inserta el medicamento recibido o actualiza el que ya existe."""
+        ...
+
+    @abstractmethod
+    def darbaja(self, entidad: Medicamento) -> bool:
+        """Da de baja el medicamento recibido."""
+        ...
+
+
+class MedicamentoSQLRepository(MedicamentoRepositorio):
     """Repositorio de medicamentos."""
 
     @staticmethod
@@ -61,8 +98,9 @@ class MedicamentoSQLRepository(Repositorio):
         sql = f"SELECT {', '.join(COLUMNAS)} FROM Medicamento ORDER BY nombre, lote"
         return tuple(self._a_entidad(row) for row in self._filas(sql))
 
-    def registrar(self, med: Medicamento) -> Medicamento:
+    def registrar(self, entidad: Medicamento) -> Medicamento:
         """Registra un nuevo medicamento en inventario."""
+        med = entidad
         med._validar_propiedades()
         fila = self._a_fila(med)
 
@@ -87,16 +125,18 @@ class MedicamentoSQLRepository(Repositorio):
         med.id_medicamento = cursor.lastrowid
         return med
 
-    def guardar(self, med: Medicamento) -> bool:
+    def guardar(self, entidad: Medicamento) -> bool:
         """Inserta el medicamento o actualiza el existente (upsert por id)."""
+        med = entidad
         med._validar_propiedades()
         cursor = self._upsert("Medicamento", self._a_fila(med), CLAVE)
         if med.id_medicamento is None:
             med.id_medicamento = cursor.lastrowid
         return cursor.rowcount > 0
 
-    def darbaja(self, med: Medicamento) -> bool:
+    def darbaja(self, entidad: Medicamento) -> bool:
         """Da de baja logica el medicamento recibido (stock = 0, disponible = 0)."""
+        med = entidad
         if med.id_medicamento is None:
             return False
         sql = "UPDATE Medicamento SET stock = 0, disponible = 0 WHERE id_medicamento = ?"
