@@ -38,6 +38,21 @@ DROP TABLE IF EXISTS Habitacion;
 DROP TABLE IF EXISTS Especialidad;
 
 
+-- `id` y `usuario_id` son TEXT, no INTEGER: los ids de Usuario son UUID hex
+-- (ver chk_usuario_id_uuid), y la tabla se llama Usuario, no users. Con STRICT
+-- y PRAGMA foreign_keys = ON, un INTEGER aqui o una FK a `users` revientan al
+-- primer INSERT real.
+CREATE TABLE IF NOT EXISTS sesiones (
+    id          TEXT PRIMARY KEY,
+    usuario_id     TEXT NOT NULL REFERENCES Usuario(id),
+    token_hash  TEXT    NOT NULL UNIQUE,
+    fecha_creacion  TEXT    NOT NULL,   -- ISO 8601 en UTC
+    fecha_expiracion  TEXT    NOT NULL,
+    fecha_revocacion  TEXT,               -- NULL = sesión activa
+    dispositivo      TEXT,
+    rol             TEXT NOT NULL
+) STRICT;
+
 CREATE TABLE Usuario(
     id TEXT PRIMARY KEY,
     hash_contrasena TEXT NOT NULL,
@@ -460,6 +475,10 @@ CREATE INDEX idx_detalle_medicamento ON DetalleReceta (id_medicamento);
 CREATE INDEX idx_cita_recepcionista ON Cita (id_recepcionista);
 CREATE INDEX idx_ingreso_recepcionista ON Ingreso (id_recepcionista);
 CREATE INDEX idx_emergencia_recepcionista ON IngresoEmergencia (id_recepcionista);
+
+-- Las sesiones de un usuario: lo que la FK necesita para no barrer la tabla
+-- entera al validar, y lo que servira para cerrarlas todas de un jalon.
+CREATE INDEX idx_sesiones_usuario ON sesiones (usuario_id);
 
 
 -- =====================================================================

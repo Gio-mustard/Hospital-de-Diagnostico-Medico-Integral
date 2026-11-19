@@ -9,13 +9,13 @@
 """
 
 import uuid
-from dataclasses import dataclass
-
+from .sesion import  SesionServicio,Sesion
 import bcrypt
 
 from model.constants import Roles
 from model.usuario import Usuario
 from model.repositories.usuario import UsuarioRepositorio
+from .sesion_repositorio import SesionRepositorio
 
 
 COSTO_BCRYPT = 12
@@ -38,31 +38,15 @@ _ERROR_CREDENCIALES = "Usuario no válido, valida el correo o la contraseña." #
 
 
 
-@dataclass(frozen=True)
-class Sesion:
-    """Sesión abierta de un usuario ya autenticado.
-
-    `id` NO es el id del usuario: es el identificador de *esta* sesión, para
-    poder distinguir dos ingresos del mismo usuario y cerrar uno sin tocar al
-    otro. El id del usuario se llega por `sesion.usuario.id`.
-    """
-
-    id: str
-    rol: Roles
-    usuario: Usuario
-
-    @classmethod
-    def abrir(cls, usuario: Usuario) -> "Sesion":
-        """Crea una sesión nueva para el usuario recibido."""
-        # TODO : Nos falta guardar la info de la sesion en un local storage o algo similar
-        return cls(id=uuid.uuid4().hex, rol=usuario.rol, usuario=usuario)
 
 
 class Auth:
     """Puerta de entrada al sistema: registra usuarios y valida credenciales."""
 
-    def __init__(self, usuario_repo: UsuarioRepositorio) -> None:
+    def __init__(self, usuario_repo: UsuarioRepositorio,sesion_repo:SesionRepositorio) -> None:
         self.__usuario_repo = usuario_repo
+        self.__sesion_repo = sesion_repo
+
 
 
     @staticmethod
@@ -107,6 +91,19 @@ class Auth:
                 f"{MAXIMO_BYTES_CONTRASENA} bytes (límite de bcrypt)."
             )
 
+    @staticmethod
+    def _normalizar_correo(correo: str) -> str:
+        """Minúsculas y sin espacios: el correo se compara tal cual en el SELECT."""
+        if not isinstance(correo, str):
+            raise ValueError("El correo debe ser texto.")
+        return correo.strip().lower()
+
+    # -------------------------------------
+    # Inicio de sesion y registro
+    # -------------------------------------
+
+
+
 
     def registrar(self, correo: str, contrasena: str, rol: Roles) -> Usuario:
         """
@@ -118,7 +115,7 @@ class Auth:
             raise ValueError("Ya existe un usuario registrado con ese correo.")
 
         usuario = Usuario(
-            id=uuid.uuid4().hex,
+            id=str(uuid.uuid4()),
             hash_contrasena=self.hashear(contrasena),
             correo=correo_normalizado,
             rol=rol,
@@ -140,6 +137,9 @@ class Auth:
         if not self.verificar(contrasena, usuario_encontrado.hash_contrasena):
             raise ValueError(_ERROR_CREDENCIALES)
 
+        sesion = SesionServicio.crear(usuario_encontrado)
+        self.__sesion_repo.guardar(sesion)
+
         # Un usuario dado de baja no entra. Se comprueba DESPUÉS de verificar la
         # contraseña y con el mismo mensaje genérico, a propósito: si se
         # respondiera antes o distinto, cualquiera podría averiguar qué correos
@@ -148,7 +148,7 @@ class Auth:
         if not usuario_encontrado.activo:
             raise ValueError(_ERROR_CREDENCIALES)
 
-        return Sesion.abrir(usuario_encontrado)
+        return SesionServicio.crear(usuario_encontrado)
 
     def cambiar_contrasena(
         self, usuario: Usuario, contrasena_actual: str, contrasena_nueva: str
@@ -161,9 +161,4 @@ class Auth:
         self.__usuario_repo.guardar(usuario)
         return usuario
 
-    @staticmethod
-    def _normalizar_correo(correo: str) -> str:
-        """Minúsculas y sin espacios: el correo se compara tal cual en el SELECT."""
-        if not isinstance(correo, str):
-            raise ValueError("El correo debe ser texto.")
-        return correo.strip().lower()
+    
