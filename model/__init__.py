@@ -4,6 +4,7 @@ Una clase por tabla de `ddl.sql`, más tres clases abstractas que concentran lo
 que varias tablas repiten:
 
     Entidad (abstracta, en constants.py)
+    ├── Usuario
     ├── DerechoHabiente
     │   ├── Paciente
     │   ├── Recepcionista
@@ -46,6 +47,7 @@ from .constants import (
     EstadosHabitacion,
     Generos,
     NivelesUrgencia,
+    Roles,
     TiposDocumento,
     TiposHabitacion,
     TiposSangre,
@@ -67,9 +69,11 @@ from .paciente import Paciente
 from .receta import Receta
 from .recepcionista import Recepcionista
 from .trabajador import Trabajador
+from .usuario import Usuario
 
 __all__ = [
     'Entidad',
+    'Roles',
     'Generos',
     'TiposSangre',
     'Turnos',
@@ -81,6 +85,7 @@ __all__ = [
     'NivelesUrgencia',
     'CLAVES_TRATAMIENTO',
     'DIAS_MINIMOS_CADUCIDAD',
+    'Usuario',
     'DerechoHabiente',
     'Paciente',
     'Trabajador',

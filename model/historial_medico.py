@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from .constants import LONGITUD_UUID, Entidad, TiposDocumento
+from .constants import LONGITUD_UUID_PUBLICO, Entidad, TiposDocumento
 
 
 class HistorialMedico(Entidad):
@@ -38,6 +38,10 @@ class HistorialMedico(Entidad):
         self.datos_dinamicos = datos_dinamicos
         self.etiquetas = [] if etiquetas is None else etiquetas
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is HistorialMedico:
+            self._validar_propiedades()
+
     @property
     def pendiente_de_procesar(self) -> bool:
         """Coincide con el índice parcial idx_historial_pendientes."""
@@ -49,10 +53,18 @@ class HistorialMedico(Entidad):
         self._validar_llave_foranea('id_paciente')
         self._validar_llave_foranea('id_medico')
 
-        self._validar_texto('uuid_publico', LONGITUD_UUID, opcional=True)
-        if self.uuid_publico is not None and len(self.uuid_publico) != LONGITUD_UUID:
+        # UUID canónico con guiones (36), no el hex de 32 de las credenciales:
+        # lo genera el DEFAULT de la tabla y es el identificador que sale a
+        # otros sistemas. Viene vacío mientras la fila no se haya insertado.
+        self._validar_texto('uuid_publico', LONGITUD_UUID_PUBLICO, opcional=True)
+        if (
+            self.uuid_publico is not None
+            and len(self.uuid_publico) != LONGITUD_UUID_PUBLICO
+        ):
             self._fallar(
-                'uuid_publico', self.uuid_publico, f"debe medir {LONGITUD_UUID} caracteres"
+                'uuid_publico',
+                self.uuid_publico,
+                f"debe medir {LONGITUD_UUID_PUBLICO} caracteres",
             )
 
         self._validar_fecha_hora('fecha_registro')

@@ -4,7 +4,7 @@ Cada enum, cada patrón y cada límite de este módulo corresponde a un
 CHECK o a un TRIGGER del DDL. 
 """
 
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from datetime import date, datetime, timedelta
 from enum import Enum
 from json import JSONDecodeError, loads
@@ -119,7 +119,21 @@ PATRON_CEDULA_PROFESIONAL = r"\d{7,10}"
 PATRON_URL_HTTPS = r"https://\S+"
 
 
-LONGITUD_UUID = 36
+LONGITUD_UUID = 32
+"""UUID interno: `uuid4().hex`, sin guiones.
+
+Es el de las credenciales y las FK entre tablas propias: `Usuario.id` y
+`DerechoHabiente.auth_user_id`.
+"""
+
+LONGITUD_UUID_PUBLICO = 36
+"""UUID público: la forma canónica con guiones, 8-4-4-4-12.
+
+Es el de `HistorialMedico.uuid_publico`, que lo genera el DEFAULT de la tabla
+(equivalente a `gen_random_uuid()` de Postgres) y viaja hacia afuera, donde se
+espera un UUID v4 estándar. Son 4 caracteres más que `LONGITUD_UUID` porque
+lleva los guiones.
+"""
 
 FECHA_NACIMIENTO_MINIMA = date(1900, 1, 1)
 
@@ -132,24 +146,34 @@ DIAS_MINIMOS_CADUCIDAD = 15
 CLAVES_TRATAMIENTO = ('diagnostico', 'medicamentos', 'indicaciones_generales')
 
 
-class _MetaEntidad(ABCMeta):
-    """Metaclase que valida la entidad al terminar TODA la cadena de `__init__`.
-
-    Sin esto cada entidad tendría que acordarse de llamar a
-    `_validar_propiedades()` al final de su constructor, y hacerlo dentro del
-    `__init__` de una clase padre tronaría: cuando corre `DerechoHabiente.__init__`
-    los atributos propios de `Medico` todavía no existen.
-
-    Al envolver la construcción, la validación corre una sola vez y hasta el
-    final, así que un objeto inválido nunca llega a manos de quien lo construyó:
-    el `ValueError` sale del constructor.
-    """
-
-
-class Entidad(ABC, metaclass=_MetaEntidad):
+class Entidad(ABC):
     """Raíz abstracta de todas las entidades del dominio.
 
-    Le da dos cosas a sus herederas:
+    CÓMO SE VALIDA UNA ENTIDAD
+
+    Cada constructor termina llamando a su propia validación, pero protegido
+    con una guardia:
+
+        if type(self) is Medico:
+            self._validar_propiedades()
+
+    La guardia es indispensable. `_validar_propiedades()` está sobrescrito en
+    toda la cadena de herencia, así que `self._validar_propiedades()` siempre
+    despacha a la versión de la clase MÁS DERIVADA, aunque se llame desde el
+    `__init__` del padre. Sin la guardia, construir un `Medico` corre
+    `DerechoHabiente.__init__`, que llamaría a `Medico._validar_propiedades` ->
+    `Trabajador._validar_propiedades` -> `self.numero_empleado`, que todavía no
+    existe: AttributeError en lugar de un objeto válido.
+
+    Con la guardia, el padre valida solo cuando es él quien se está
+    construyendo, y la validación corre UNA sola vez: al final del `__init__`
+    de la clase que de verdad se instanció, con todos los atributos ya puestos.
+
+    El precio es que cada clase nueva debe acordarse de poner esas dos líneas
+    con SU propio nombre; si se olvidan, esa entidad simplemente no valida al
+    construirse (sigue validando cuando el repositorio la guarda).
+
+    LO QUE LA CLASE LE DA A SUS HEREDERAS
 
     1. El contrato `_validar_propiedades()`, que traduce a Python los CHECK y
        los TRIGGER del DDL. Cada implementación arranca con
@@ -174,15 +198,26 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         `_Hija__validar_propiedades`, con lo que no implementaría el método
         abstracto ni podría encadenarse con `super()`.
 
-        es privado pue...
+        Es privado porque nadie de fuera debería validar una entidad a mano: la
+        validan su propio constructor y el repositorio antes de escribirla.
         """
 
 
     @property
     def clave(self) -> Any:
-        """Valor de la llave primaria: un escalar, o una tupla si es compuesta."""
+        """Valor de la llave primaria: un escalar, o una tupla si es compuesta.
+
+        Es la llave de la clase MÁS DERIVADA, la que de verdad identifica a la
+        entidad: para un `Medico` es `id_medico`, no el `id_derechohabiente`
+        que arrastra por herencia, porque cada clase declara su propio
+        `_CAMPOS_CLAVE`.
+
+        Devuelve `None` si la entidad todavía no está identificada: o no
+        declara llave, o alguna de sus partes viene vacía porque no se ha
+        insertado.
+        """
         valores = tuple(getattr(self, campo, None) for campo in self._CAMPOS_CLAVE)
-        if not valores:
+        if not valores or any(valor is None for valor in valores):
             return None
         return valores[0] if len(valores) == 1 else valores
 
@@ -191,16 +226,39 @@ class Entidad(ABC, metaclass=_MetaEntidad):
         return f"{type(self).__name__}({campos})"
 
     def __eq__(self, otro: object) -> bool:
+        """Dos entidades son la misma si son del mismo tipo y comparten llave.
+
+        Sin llave todavía (recién construidas, sin insertar) no hay con qué
+        compararlas, así que se cae a la identidad: cada objeto es solo igual
+        a sí mismo.
+        """
         if type(otro) is not type(self):
             return NotImplemented
         clave = self.clave
-        if clave is None:
+        if clave is None or otro.clave is None:  # type: ignore[attr-defined]
             return self is otro
         return clave == otro.clave  # type: ignore[attr-defined]
 
     def __hash__(self) -> int:
+        """Hash de la llave primaria. Sin llave, la entidad no es hasheable.
+
+        No se puede usar `id(self)` como salida de emergencia: el repositorio
+        le asigna la llave al insertar, así que el hash CAMBIARÍA a media vida
+        del objeto y la entidad desaparecería del `set` o del `dict` donde
+        estuviera. Tampoco se puede hashear por identidad siempre, porque dos
+        objetos iguales según `__eq__` tienen que dar el mismo hash.
+
+        La única salida coherente es negarse: una entidad sin insertar no entra
+        en un conjunto, y el error salta al momento de meterla, no después.
+        """
         clave = self.clave
-        return id(self) if clave is None else hash((type(self).__name__, clave))
+        if clave is None:
+            raise TypeError(
+                f"{self._descripcion()} no tiene llave primaria todavía, así que "
+                "no se puede hashear. Persístela antes de meterla en un set o "
+                "en un dict."
+            )
+        return hash((type(self).__name__, clave))
 
 
     def _descripcion(self) -> str:
@@ -330,18 +388,27 @@ class Entidad(ABC, metaclass=_MetaEntidad):
             self._fallar(campo, valor, f"no puede ser posterior a {maxima.isoformat()}")
 
     def _validar_fecha_hora(self, campo: str, *, opcional: bool = False) -> None:
-        """TIMESTAMP del DDL: TEXT 'YYYY-MM-DD HH:MM:SS'. Normaliza a `datetime`."""
+        """TIMESTAMP del DDL: TEXT 'YYYY-MM-DD HH:MM:SS'. Normaliza a `datetime`.
+
+        Descarta los microsegundos. La columna guarda segundos y los CHECK del
+        DDL comparan el texto contra `datetime(campo)`, que los recorta: sin
+        truncar aquí, un `datetime.now()` (que trae microsegundos) se escribiría
+        como '...:59.032280' y la inserción fallaría con IntegrityError. Se hace
+        en el validador y no en cada repositorio para que valga de una vez para
+        `Cita.fecha_hora`, `IngresoEmergencia.fecha_hora`,
+        `HistorialMedico.fecha_registro` e `Ingreso.fecha_ingreso`/`fecha_alta`.
+        """
         valor = self._obtener(campo, opcional)
         if valor is None:
             return
         if isinstance(valor, str):
             try:
-                setattr(self, campo, datetime.fromisoformat(valor))
+                valor = datetime.fromisoformat(valor)
             except ValueError:
                 self._fallar(campo, valor, "debe tener el formato 'YYYY-MM-DD HH:MM:SS'")
-            return
-        if not isinstance(valor, datetime):
+        elif not isinstance(valor, datetime):
             self._fallar(campo, valor, "debe ser una fecha con hora")
+        setattr(self, campo, valor.replace(microsecond=0))
 
     def _validar_url_https(
         self, campo: str, *, maximo: int | None = None, opcional: bool = False
