@@ -19,6 +19,10 @@ class Especialidad(Entidad):
         self.nombre = nombre
         self.descripcion = descripcion
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Especialidad:
+            self._validar_propiedades()
+
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_clave_propia('id_esp')

@@ -29,6 +29,10 @@ class Receta(Entidad):
         self.fecha_emision = fecha_emision
         self.tratamiento = tratamiento
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Receta:
+            self._validar_propiedades()
+
     @property
     def por_emergencia(self) -> bool:
         return self.id_ingreso_emergencia is not None

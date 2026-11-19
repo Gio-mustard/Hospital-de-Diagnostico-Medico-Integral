@@ -55,6 +55,10 @@ class Paciente(DerechoHabiente):
         self.id_paciente = id_paciente
         self.tipo_sangre = tipo_sangre
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Paciente:
+            self._validar_propiedades()
+
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_clave_propia('id_paciente')

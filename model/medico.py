@@ -57,7 +57,10 @@ class Medico(Trabajador):
         )
         self.id_medico = id_medico
         self.cedula_profesional = cedula_profesional
-        self._validar_propiedades()
+
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Medico:
+            self._validar_propiedades()
 
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()

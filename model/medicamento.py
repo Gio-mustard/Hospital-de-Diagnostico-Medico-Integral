@@ -31,6 +31,10 @@ class Medicamento(Entidad):
         self.disponible = disponible
         self.proximo_pedido = proximo_pedido
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Medicamento:
+            self._validar_propiedades()
+
     @property
     def agotado(self) -> bool:
         return self.stock == 0

@@ -30,6 +30,10 @@ class Ingreso(Entidad):
         self.num_habitacion = num_habitacion
         self.id_recepcionista = id_recepcionista
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Ingreso:
+            self._validar_propiedades()
+
     @property
     def dado_de_alta(self) -> bool:
         return self.fecha_alta is not None

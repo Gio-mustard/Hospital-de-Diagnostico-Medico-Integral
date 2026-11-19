@@ -36,6 +36,10 @@ class AtencionMedica(Entidad):
         self.motivo = motivo
         self.diagnostico = diagnostico
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is AtencionMedica:
+            self._validar_propiedades()
+
     @property
     @abstractmethod
     def ubicacion(self) -> int | None:

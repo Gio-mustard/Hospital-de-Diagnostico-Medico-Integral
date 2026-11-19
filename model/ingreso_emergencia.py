@@ -36,6 +36,10 @@ class IngresoEmergencia(AtencionMedica):
         self.num_habitacion = num_habitacion
         self.nivel_urgencia = nivel_urgencia
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is IngresoEmergencia:
+            self._validar_propiedades()
+
     @property
     def ubicacion(self) -> int | None:
         return self.num_habitacion

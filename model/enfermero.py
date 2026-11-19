@@ -61,6 +61,10 @@ class Enfermero(Trabajador):
         )
         self.id_enfermero = id_enfermero
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Enfermero:
+            self._validar_propiedades()
+
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_clave_propia('id_enfermero')

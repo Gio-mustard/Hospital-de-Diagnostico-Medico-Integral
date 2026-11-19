@@ -58,6 +58,10 @@ class Trabajador(DerechoHabiente):
         self.departamento = departamento
         self.fecha_ingreso = fecha_ingreso
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Trabajador:
+            self._validar_propiedades()
+
     @property
     def antiguedad_en_anios(self) -> int:
         ingreso: date = self.fecha_ingreso

@@ -21,6 +21,10 @@ class Habitacion(EspacioFisico):
         super().__init__(numero=num_habitacion, piso=piso, estado=estado)
         self.tipo = tipo
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Habitacion:
+            self._validar_propiedades()
+
     @property
     def num_habitacion(self) -> int:
         """Alias con el nombre que lleva la columna en el DDL."""

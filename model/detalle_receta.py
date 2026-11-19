@@ -23,6 +23,10 @@ class DetalleReceta(Entidad):
         self.id_medicamento = id_medicamento
         self.dosis_indicaciones = dosis_indicaciones
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is DetalleReceta:
+            self._validar_propiedades()
+
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_llave_foranea('id_receta')

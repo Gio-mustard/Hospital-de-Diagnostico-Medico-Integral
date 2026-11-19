@@ -21,6 +21,10 @@ class Consultorio (EspacioFisico) :
         super().__init__(numero=num_consultorio, piso=piso, estado=estado)
         self.departamento = departamento
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Consultorio:
+            self._validar_propiedades()
+
     @property
     def num_consultorio(self) -> int:
         """Alias con el nombre que lleva la columna en el DDL."""

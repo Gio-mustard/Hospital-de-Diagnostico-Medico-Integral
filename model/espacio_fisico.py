@@ -27,6 +27,10 @@ class EspacioFisico(Entidad):
         self.piso = piso
         self.estado = estado
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is EspacioFisico:
+            self._validar_propiedades()
+
     @property
     @abstractmethod
     def disponible(self) -> bool:

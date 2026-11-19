@@ -66,7 +66,10 @@ class DerechoHabiente(Entidad):
         self.telefono = telefono
         self.curp = curp
         self.activo = activo
-        self._validar_propiedades()
+
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is DerechoHabiente:
+            self._validar_propiedades()
 
 
     @property

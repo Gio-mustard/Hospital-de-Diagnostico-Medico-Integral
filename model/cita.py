@@ -36,6 +36,10 @@ class Cita(AtencionMedica):
         self.num_consultorio = num_consultorio
         self.estado = estado
 
+        # valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Cita:
+            self._validar_propiedades()
+
     @property
     def ubicacion(self) -> int | None:
         return self.num_consultorio
@@ -56,5 +60,5 @@ class Cita(AtencionMedica):
             self._fallar(
                 'diagnostico',
                 self.diagnostico,
-                f"solo una cita Completada puede traer diagnóstico (estado: {self.estado.value})",
+                f"solo una cita Completada puede traer diagnóstico (estado: {self.estado})",
             )

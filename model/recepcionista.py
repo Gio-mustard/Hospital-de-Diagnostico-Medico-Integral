@@ -62,6 +62,10 @@ class Recepcionista(DerechoHabiente):
         self.modulo_atencion = modulo_atencion
         self.extension_tel = extension_tel
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is Recepcionista:
+            self._validar_propiedades()
+
     def _validar_propiedades(self) -> None:
         super()._validar_propiedades()
         self._validar_clave_propia('id_recepcionista')

@@ -34,6 +34,10 @@ class AsignacionEspecialidad(Entidad):
         self.documentos = documentos
         self.institucion = institucion
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is AsignacionEspecialidad:
+            self._validar_propiedades()
+
     @property
     @abstractmethod
     def id_titular(self) -> int:
@@ -71,6 +75,10 @@ class MedicoEspecialidad(AsignacionEspecialidad):
         super().__init__(id_esp=id_esp, documentos=documentos, institucion=institucion)
         self.id_medico = id_medico
 
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is MedicoEspecialidad:
+            self._validar_propiedades()
+
     @property
     def id_titular(self) -> int:
         return self.id_medico
@@ -92,6 +100,10 @@ class EnfermeroEspecialidad(AsignacionEspecialidad):
     ) -> None:
         super().__init__(id_esp=id_esp, documentos=documentos, institucion=institucion)
         self.id_enfermero = id_enfermero
+
+        # Valida solo si no hay una hija construyendose (ver Entidad en constants.py).
+        if type(self) is EnfermeroEspecialidad:
+            self._validar_propiedades()
 
     @property
     def id_titular(self) -> int:
