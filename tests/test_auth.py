@@ -10,10 +10,10 @@ Usa el repositorio SQL real contra la base en memoria, porque la regla de
 
 import unittest
 
-import utils.auth as modulo_auth
+import utils.autenticacion as modulo_auth
 from model.constants import Roles
 from model.repositories import UsuarioSQLRepository
-from utils.auth import AuthService, Sesion
+from utils.autenticacion import AuthService, Sesion
 from utils.sesion import SesionServicio
 from utils.sesion_repositorio import SesionSQLRepositorio
 
