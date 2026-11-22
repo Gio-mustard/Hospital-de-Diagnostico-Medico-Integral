@@ -23,12 +23,12 @@ class Repositorio(ABC):
     """
 
     def __init__(self, db: Database):
-        self._db = db
+        self.__db = db
 
     @property
     def db(self) -> Database:
         """Base de datos inyectada en el repositorio."""
-        return self._db
+        return self.__db
 
 
     def _filas(self, sql: str, params: Sequence[Any] = ()) -> list[Any]:

@@ -7,6 +7,9 @@ venv/
 .env
 .env.local
 
+# Token de sesion del servicio de pruebas (credencial viva, texto en claro)
+sesion_prueba.txt
+
 # Base de datos local de SQLite
 *.db
 *.db-journal

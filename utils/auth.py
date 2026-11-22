@@ -9,12 +9,14 @@
 """
 
 import uuid
-from .sesion import  SesionServicio,Sesion
+
 import bcrypt
 
 from model.constants import Roles
 from model.usuario import Usuario
 from model.repositories.usuario import UsuarioRepositorio
+
+from .sesion import Sesion, SesionServicio
 from .sesion_repositorio import SesionRepositorio
 
 
@@ -27,34 +29,35 @@ bruta, y más tarda el login. 12 es el valor recomendado hoy; subirlo no rompe
 los hashes viejos, porque cada hash trae su propio costo anotado adentro.
 """
 
-LONGITUD_MINIMA_CONTRASENA = 8
-
-MAXIMO_BYTES_CONTRASENA = 72 
-
-_HASH_SENUELO = "$2b$12$uChxZ/EXwmtHWp8Va/Icre9CMYhOe/IlLzQSS.D6RFHRLA3bnY1LG"
-"""Hash de descarte que se verifica cuando el correo no existe. Para evitar ataques de fuerza bruta"""
-
-_ERROR_CREDENCIALES = "Usuario no válido, valida el correo o la contraseña." # mensaje de error
 
 
 
 
+class AuthService:
 
-class Auth:
+    __LONGITUD_MINIMA_CONTRASENA = 8
+    __MAXIMO_BYTES_CONTRASENA = 72 
+    __HASH_SENUELO = "$2b$12$uChxZ/EXwmtHWp8Va/Icre9CMYhOe/IlLzQSS.D6RFHRLA3bnY1LG"
+    __ERROR_CREDENCIALES = "Usuario no válido, valida el correo o la contraseña." # mensaje de error
+
     """Puerta de entrada al sistema: registra usuarios y valida credenciales."""
 
-    def __init__(self, usuario_repo: UsuarioRepositorio,sesion_repo:SesionRepositorio) -> None:
+    def __init__(
+        self,
+        usuario_repo: UsuarioRepositorio,
+        sesion_repo: SesionRepositorio,
+        sesion_servicio:SesionServicio
+    ) -> None:
         self.__usuario_repo = usuario_repo
         self.__sesion_repo = sesion_repo
-
-
+        self.__sesion_servicio = sesion_servicio
 
     @staticmethod
     def hashear(contrasena: str) -> str:
         """
         Devuelve el hash bcrypt (con su salt adentro) de la contraseña.
         """
-        Auth._validar_contrasena(contrasena)
+        AuthService._validar_contrasena(contrasena)
         hash_en_bytes = bcrypt.hashpw(
             contrasena.encode("utf-8"), bcrypt.gensalt(COSTO_BCRYPT)
         )
@@ -80,15 +83,15 @@ class Auth:
         """Reglas mínimas de la contraseña en claro, antes de hashearla."""
         if not isinstance(contrasena, str):
             raise ValueError("La contraseña debe ser texto.")
-        if len(contrasena) < LONGITUD_MINIMA_CONTRASENA:
+        if len(contrasena) < AuthService.__LONGITUD_MINIMA_CONTRASENA:
             raise ValueError(
                 f"La contraseña debe tener al menos "
-                f"{LONGITUD_MINIMA_CONTRASENA} caracteres."
+                f"{AuthService.__LONGITUD_MINIMA_CONTRASENA} caracteres."
             )
-        if len(contrasena.encode("utf-8")) > MAXIMO_BYTES_CONTRASENA:
+        if len(contrasena.encode("utf-8")) > AuthService.__MAXIMO_BYTES_CONTRASENA:
             raise ValueError(
                 f"La contraseña no puede pasar de "
-                f"{MAXIMO_BYTES_CONTRASENA} bytes (límite de bcrypt)."
+                f"{AuthService.__MAXIMO_BYTES_CONTRASENA} bytes (límite de bcrypt)."
             )
 
     @staticmethod
@@ -102,9 +105,6 @@ class Auth:
     # Inicio de sesion y registro
     # -------------------------------------
 
-
-
-
     def registrar(self, correo: str, contrasena: str, rol: Roles) -> Usuario:
         """
         Da de alta un usuario nuevo y devuelve la entidad ya persistida.
@@ -115,40 +115,91 @@ class Auth:
             raise ValueError("Ya existe un usuario registrado con ese correo.")
 
         usuario = Usuario(
-            id=str(uuid.uuid4()),
+            id=uuid.uuid4().hex,
             hash_contrasena=self.hashear(contrasena),
             correo=correo_normalizado,
             rol=rol,
         )
         return self.__usuario_repo.registrar(usuario)
 
-    def ingresar(self, correo: str, contrasena: str) -> Sesion:
-        """
-        Valida las credenciales y abre una sesión.
-        """
+    def ingresar(
+        self, correo: str, contrasena: str, *, recordar: bool = False
+    ) -> Sesion:
+        """Valida las credenciales, abre una sesión y la persiste."""
         usuario_encontrado = self.__usuario_repo.obtener_por_correo(
             self._normalizar_correo(correo)
         )
 
         if not usuario_encontrado:
-            self.verificar(contrasena, _HASH_SENUELO)
-            raise ValueError(_ERROR_CREDENCIALES)
+            self.verificar(contrasena, self.__HASH_SENUELO)
+            raise ValueError(self.__ERROR_CREDENCIALES)
 
         if not self.verificar(contrasena, usuario_encontrado.hash_contrasena):
-            raise ValueError(_ERROR_CREDENCIALES)
+            raise ValueError(self.__ERROR_CREDENCIALES)
 
-        sesion = SesionServicio.crear(usuario_encontrado)
+        
+        if not usuario_encontrado.activo:
+            raise ValueError(self.__ERROR_CREDENCIALES)
+
+        sesion = self.__sesion_servicio.crear(usuario_encontrado)
         self.__sesion_repo.guardar(sesion)
 
-        # Un usuario dado de baja no entra. Se comprueba DESPUÉS de verificar la
-        # contraseña y con el mismo mensaje genérico, a propósito: si se
-        # respondiera antes o distinto, cualquiera podría averiguar qué correos
-        # están registrados y cuáles fueron desactivados, que es justo lo que
-        # evita el hash señuelo de más arriba.
-        if not usuario_encontrado.activo:
-            raise ValueError(_ERROR_CREDENCIALES)
+        if recordar:
+            self.__sesion_servicio.guardar(sesion.token)
 
-        return SesionServicio.crear(usuario_encontrado)
+        return sesion
+
+    # ----------------------------------------
+    # Manejo de sesiones
+    # ----------------------------------------
+
+    def restaurar_sesion(self)->Sesion|None:
+        """Restaura y retorna la sesion si existe"""
+        token = self.__sesion_servicio.cargar()
+
+        if token is None : return None
+
+        sesion:Sesion|None = self.__sesion_repo.obtener_activa(token)
+
+        if sesion is None:
+            # Si el usuario esta activo pero la sesion se caduco o revoco
+            self.__sesion_servicio.limpiar()
+            return None
+        
+        if not sesion.usuario.activo:
+            self.cerrar_sesion(sesion)
+            return None
+        
+        return sesion
+
+    def estado_sesion(self)->None:
+        '''NO IMPLEMENTADA:
+
+        @return callable | function | lambda
+
+        Esta funcion podria revisar la sesion y retornar un lambda que siempre se ejecuta.
+        
+        Esto podria usarse para cada peticion que haga el controlador
+        y podria usarse para verificar si se revoco la sesion cuando esta la app abierta
+        para que en esos casos se cierre y elimine del dispositivo.
+        '''
+        ...
+
+    def cerrar_sesion(self, sesion: Sesion | None = None) -> bool:
+        """Cierra la sesión y borra todo rastro de ella en esta máquina."""
+        _sesion:Sesion|None = sesion
+
+        if sesion is None:
+            token_guardado = self.__sesion_servicio.cargar()
+            if token_guardado is not None:
+                _sesion = self.__sesion_repo.obtener_activa(token_guardado)
+
+        if _sesion is not None:
+            self.__sesion_repo.revocar(_sesion)
+
+        self.__sesion_servicio.limpiar()
+
+        return _sesion is not None
 
     def cambiar_contrasena(
         self, usuario: Usuario, contrasena_actual: str, contrasena_nueva: str

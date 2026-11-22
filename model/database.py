@@ -25,12 +25,21 @@ No hay `commit()` ni `rollback()` sueltos a propósito: llamarlos a media
 import sqlite3
 from contextlib import contextmanager
 
+# ---------------------------------------------
+#                   EXCEPCIONES
+# ---------------------------------------------
+
 
 class BaseDeDatosNoConectada(RuntimeError):
     """Se intentó usar la base de datos antes de llamar a `connect()`."""
 
+# ---------------------------------------------
+#                   Clases 
+# ---------------------------------------------
+
 
 class Database:
+    # Esta clase esta mal hecha, deberia de existir una interfaz que abstraiga este show, estamos exponiendo y usando directamente esta clase para tipar las dependencias, esto mata todo diseno hecho para evitar el acoplamiento
     def __init__(self, db_file: str):
         self.db_file = db_file
         self._connection = None

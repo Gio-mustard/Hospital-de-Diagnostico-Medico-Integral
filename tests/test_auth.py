@@ -1,6 +1,6 @@
-"""Pruebas de Auth: registro, ingreso y la baja logica del usuario.
+"""Pruebas de AuthService: registro, ingreso y la baja logica del usuario.
 
-Auth es el unico lugar donde vive politica de acceso, asi que lo que importa
+AuthService es el unico lugar donde vive politica de acceso, asi que lo que importa
 aqui es que esa politica no se pueda esquivar y que no filtre informacion de
 quien esta registrado.
 
@@ -13,7 +13,9 @@ import unittest
 import utils.auth as modulo_auth
 from model.constants import Roles
 from model.repositories import UsuarioSQLRepository
-from utils.auth import Auth, Sesion
+from utils.auth import AuthService, Sesion
+from utils.sesion import SesionServicio
+from utils.sesion_repositorio import SesionSQLRepositorio
 
 from .base import RepositorioTestCase
 
@@ -41,11 +43,62 @@ def tearDownModule():
     modulo_auth.COSTO_BCRYPT = _costo_real
 
 
+class ServicioSesionMemoria(SesionServicio):
+    """Doble del servicio de sesion: guarda el token en memoria.
+
+    Cumple el contrato pero sin llavero ni archivo. Las pruebas no deben tocar
+    el llavero de quien las corre, y `SesionServicioArchivo` tampoco sirve
+    aqui: apunta a un unico `sesion_prueba.txt` en la raiz que las 622 pruebas
+    compartirian, pisandose el token entre ellas.
+
+    Los tres metodos son de instancia y no de clase, al contrario que en los
+    servicios de verdad, para que cada prueba arranque con su almacenamiento
+    vacio; con estado de clase el token de una prueba sobreviviria a la
+    siguiente. `crear` se hereda tal cual, que es justo lo que se quiere
+    ejercitar.
+    """
+
+    def __init__(self) -> None:
+        self.token: str | None = None
+
+    def guardar(self, token: str) -> None:
+        self.token = token
+
+    def cargar(self) -> str | None:
+        return self.token
+
+    def limpiar(self) -> None:
+        self.token = None
+
+
 class AuthTestCase(RepositorioTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.repo = UsuarioSQLRepository(self.db)
-        self.auth = Auth(self.repo)
+        self.sesiones = SesionSQLRepositorio(self.db, self.repo)
+        self.servicio = ServicioSesionMemoria()
+        self.auth = AuthService(self.repo, self.sesiones, self.servicio)
+
+    def ingresar(self, **cambios) -> Sesion:
+        """Ingreso de Ana, el de siempre. `recordar` se pasa por `cambios`."""
+        return self.auth.ingresar("ana@hospital.com", CONTRASENA, **cambios)
+
+    def caducar(self, sesion: Sesion) -> None:
+        """Vence la sesion en la base, sin esperar las 8 horas.
+
+        Se escribe el texto directo en la columna porque es el formato con el
+        que `obtener_activa` compara (`fecha_expiracion > ?`, texto ISO UTC), y
+        porque `Sesion` es un dataclass congelado: la fecha del objeto no se
+        puede correr.
+        """
+        self.db.execute(
+            "UPDATE sesiones SET fecha_expiracion = ? WHERE id = ?",
+            ("2020-01-01T00:00:00+00:00", sesion.id),
+        )
+
+    def revocacion_de(self, sesion: Sesion) -> str | None:
+        """La `fecha_revocacion` que quedo escrita, leida sin pasar por el repo."""
+        return self.leer_fila("sesiones", id=sesion.id)["fecha_revocacion"]
 
 
 class RegistrarUsuarios(AuthTestCase):
@@ -223,27 +276,259 @@ class CambiarContrasena(AuthTestCase):
             self.auth.cambiar_contrasena(self.usuario, CONTRASENA, "corta")
 
 
+class RestaurarSesion(AuthTestCase):
+    """Los tres caminos de guarda de `restaurar_sesion`, mas el camino sano.
+
+    Es la unica entrada al sistema que no pide contrasena: acepta el token que
+    quedo guardado en el dispositivo. Asi que lo que importa es que no acepte
+    un token que ya no vale, y que cuando no vale no lo deje ahi tirado.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = self.auth.registrar(
+            "ana@hospital.com", CONTRASENA, Roles.MEDICO
+        )
+
+    # ------------------------------------------------------------------
+    # Camino sano: hay token y la sesion vive
+    # ------------------------------------------------------------------
+
+    def test_devuelve_la_sesion_que_se_guardo(self):
+        sesion = self.ingresar(recordar=True)
+
+        restaurada = self.auth.restaurar_sesion()
+
+        self.assertIsNotNone(restaurada)
+        self.assertEqual(restaurada.id, sesion.id)
+        self.assertEqual(restaurada.usuario.id, self.usuario.id)
+        self.assertIs(restaurada.rol, Roles.MEDICO)
+
+    def test_restaurar_no_consume_el_token(self):
+        """No es de un solo uso: la app puede restaurar en cada arranque."""
+        sesion = self.ingresar(recordar=True)
+
+        self.auth.restaurar_sesion()
+
+        self.assertEqual(self.servicio.cargar(), sesion.token)
+        self.assertIsNotNone(self.auth.restaurar_sesion())
+
+    def test_la_sesion_sana_no_se_revoca_al_restaurarla(self):
+        sesion = self.ingresar(recordar=True)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.revocacion_de(sesion))
+
+    # ------------------------------------------------------------------
+    # Caso 1: no hay token en el dispositivo
+    # ------------------------------------------------------------------
+
+    def test_sin_token_guardado_no_hay_sesion(self):
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    def test_ingresar_sin_recordar_no_deja_nada_que_restaurar(self):
+        """`recordar` es explicito: sin el, la sesion no sobrevive al cierre."""
+        self.ingresar()
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    # ------------------------------------------------------------------
+    # Caso 2: hay token, pero la sesion ya no vale
+    # ------------------------------------------------------------------
+
+    def test_una_sesion_caducada_no_se_restaura(self):
+        sesion = self.ingresar(recordar=True)
+        self.caducar(sesion)
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    def test_una_sesion_caducada_se_borra_del_dispositivo(self):
+        sesion = self.ingresar(recordar=True)
+        self.caducar(sesion)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.servicio.cargar())
+
+    def test_una_sesion_caducada_no_se_marca_como_revocada(self):
+        """Vencerse no es cerrarse.
+
+        `fecha_revocacion` es el dato que distingue 'alguien la cerro' de 'se
+        vencio sola', y eso vale para una auditoria: no hay que mancharlo al
+        limpiar el dispositivo.
+        """
+        sesion = self.ingresar(recordar=True)
+        self.caducar(sesion)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.revocacion_de(sesion))
+
+    def test_una_sesion_revocada_no_se_restaura(self):
+        sesion = self.ingresar(recordar=True)
+        self.sesiones.revocar(sesion)
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    def test_una_sesion_revocada_se_borra_del_dispositivo(self):
+        sesion = self.ingresar(recordar=True)
+        self.sesiones.revocar(sesion)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.servicio.cargar())
+
+    def test_un_token_que_no_corresponde_a_nada_se_borra(self):
+        """El caso de una base reinstalada, o de basura escrita a mano."""
+        self.servicio.guardar("este-token-no-existe-en-la-base")
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+        self.assertIsNone(self.servicio.cargar())
+
+    # ------------------------------------------------------------------
+    # Caso 3: la sesion vive, pero su dueno fue dado de baja
+    # ------------------------------------------------------------------
+
+    def test_un_usuario_dado_de_baja_no_restaura_su_sesion(self):
+        """La baja logica no puede esperar a que la sesion venza sola.
+
+        `ingresar` ya le cierra la puerta a un usuario inactivo; si
+        `restaurar_sesion` no hiciera lo mismo, bastaria con no cerrar la app
+        para seguir trabajando hasta ocho horas despues de la baja.
+        """
+        self.ingresar(recordar=True)
+        self.repo.darbaja(self.usuario)
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    def test_dar_de_baja_borra_el_token_del_dispositivo(self):
+        self.ingresar(recordar=True)
+        self.repo.darbaja(self.usuario)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.servicio.cargar())
+
+    def test_dar_de_baja_revoca_la_sesion_en_la_base(self):
+        """Aqui si se revoca: la sesion seguia viva, la cerro una decision."""
+        sesion = self.ingresar(recordar=True)
+        self.repo.darbaja(self.usuario)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNotNone(self.revocacion_de(sesion))
+
+    def test_el_token_de_un_usuario_dado_de_baja_ya_no_abre_nada(self):
+        sesion = self.ingresar(recordar=True)
+        self.repo.darbaja(self.usuario)
+
+        self.auth.restaurar_sesion()
+
+        self.assertIsNone(self.sesiones.obtener_activa(sesion.token))
+
+    def test_reactivar_al_usuario_no_revive_el_token_viejo(self):
+        """Revocar es definitivo: para volver a entrar hay que dar la contrasena."""
+        sesion = self.ingresar(recordar=True)
+        self.repo.darbaja(self.usuario)
+        self.auth.restaurar_sesion()
+
+        self.usuario.activo = True
+        self.repo.guardar(self.usuario)
+
+        self.assertIsNone(self.sesiones.obtener_activa(sesion.token))
+
+
+class CerrarSesion(AuthTestCase):
+    """Cerrar sesion tiene que cerrar los dos lados: la base y el dispositivo."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.usuario = self.auth.registrar(
+            "ana@hospital.com", CONTRASENA, Roles.MEDICO
+        )
+        self.sesion = self.ingresar(recordar=True)
+
+    def test_devuelve_true_cuando_habia_una_sesion_abierta(self):
+        self.assertTrue(self.auth.cerrar_sesion())
+
+    def test_revoca_la_sesion_en_la_base(self):
+        self.auth.cerrar_sesion()
+
+        self.assertIsNotNone(self.revocacion_de(self.sesion))
+
+    def test_borra_el_token_del_dispositivo(self):
+        self.auth.cerrar_sesion()
+
+        self.assertIsNone(self.servicio.cargar())
+
+    def test_el_token_ya_no_abre_nada(self):
+        self.auth.cerrar_sesion()
+
+        self.assertIsNone(self.sesiones.obtener_activa(self.sesion.token))
+
+    def test_despues_de_cerrar_no_hay_nada_que_restaurar(self):
+        self.auth.cerrar_sesion()
+
+        self.assertIsNone(self.auth.restaurar_sesion())
+
+    def test_cerrar_dos_veces_devuelve_false_la_segunda(self):
+        """Cerrar lo que ya esta cerrado no es un error, pero tampoco cierra nada."""
+        self.assertTrue(self.auth.cerrar_sesion())
+        self.assertFalse(self.auth.cerrar_sesion())
+
+    def test_no_corre_la_hora_del_primer_cierre(self):
+        """La hora que importa para una auditoria es la del cierre de verdad."""
+        self.auth.cerrar_sesion()
+        primera = self.revocacion_de(self.sesion)
+
+        self.auth.cerrar_sesion()
+
+        self.assertEqual(self.revocacion_de(self.sesion), primera)
+
+    def test_sin_sesion_abierta_devuelve_false(self):
+        self.auth.cerrar_sesion()
+        self.servicio.limpiar()
+
+        self.assertFalse(self.auth.cerrar_sesion())
+
+    def test_un_token_muerto_se_limpia_aunque_no_haya_que_revocar(self):
+        self.servicio.guardar("este-token-no-existe-en-la-base")
+
+        self.assertFalse(self.auth.cerrar_sesion())
+        self.assertIsNone(self.servicio.cargar())
+
+    def test_con_una_sesion_explicita_cierra_esa_y_no_otra(self):
+        otra = self.ingresar()
+
+        self.assertTrue(self.auth.cerrar_sesion(otra))
+
+        self.assertIsNone(self.sesiones.obtener_activa(otra.token))
+        self.assertIsNotNone(self.revocacion_de(otra))
+        self.assertIsNone(self.revocacion_de(self.sesion))
+
+
 class HasheoDeContrasenas(unittest.TestCase):
     """No toca la base: solo las primitivas de bcrypt."""
 
     def test_el_mismo_texto_da_hashes_distintos(self):
         """bcrypt mete un salt nuevo en cada hash."""
-        self.assertNotEqual(Auth.hashear(CONTRASENA), Auth.hashear(CONTRASENA))
+        self.assertNotEqual(AuthService.hashear(CONTRASENA), AuthService.hashear(CONTRASENA))
 
     def test_los_dos_hashes_verifican_igual(self):
         for _ in range(2):
-            self.assertTrue(Auth.verificar(CONTRASENA, Auth.hashear(CONTRASENA)))
+            self.assertTrue(AuthService.verificar(CONTRASENA, AuthService.hashear(CONTRASENA)))
 
     def test_rechaza_la_contrasena_equivocada(self):
-        self.assertFalse(Auth.verificar("otra", Auth.hashear(CONTRASENA)))
+        self.assertFalse(AuthService.verificar("otra", AuthService.hashear(CONTRASENA)))
 
     def test_verificar_no_revienta_con_basura(self):
-        self.assertFalse(Auth.verificar(CONTRASENA, "no-es-un-hash"))
-        self.assertFalse(Auth.verificar("", ""))
+        self.assertFalse(AuthService.verificar(CONTRASENA, "no-es-un-hash"))
+        self.assertFalse(AuthService.verificar("", ""))
 
     def test_no_acepta_una_contrasena_mas_larga_que_el_limite_de_bcrypt(self):
         with self.assertRaises(ValueError):
-            Auth.hashear("x" * 73)
+            AuthService.hashear("x" * 73)
 
 
 if __name__ == "__main__":

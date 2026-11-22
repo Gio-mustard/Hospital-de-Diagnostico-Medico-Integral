@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from enum import Enum
 from hashlib import sha256
 
-from model.constants import Roles
 from model.database import Database
 from model.repositories.usuario import UsuarioRepositorio
 
@@ -122,7 +121,7 @@ class SesionSQLRepositorio(SesionRepositorio):
             "fecha_expiracion": _a_texto(sesion.fecha_expiracion),
             "fecha_revocacion": _a_texto(sesion.fecha_revocacion),
             "dispositivo": sesion.dispositivo,
-            "rol": sesion.rol.value if isinstance(sesion.rol, Enum) else sesion.rol,
+            "rol": sesion.usuario.rol.value if isinstance(sesion.usuario.rol, Enum) else sesion.usuario.rol,
         }
 
     def _a_entidad(self, row, token: str) -> Sesion | None:
@@ -144,7 +143,7 @@ class SesionSQLRepositorio(SesionRepositorio):
 
         return Sesion(
             id=row["id"],
-            rol=Roles(row["rol"]),
+            rol=usuario.rol,
             usuario=usuario,
             token=token,
             fecha_creacion=_a_momento(row["fecha_creacion"]),
@@ -157,9 +156,18 @@ class SesionSQLRepositorio(SesionRepositorio):
         """Inserta la sesión, o actualiza la que ya tiene ese id (upsert por id).
 
         El conflicto solo actualiza las columnas que de verdad cambian a lo
-        largo de la vida de una sesión: su vencimiento y su revocación. El
+        largo de la vida de una sesión: su vencimiento y su dispositivo. El
         token_hash y la fecha de creación se quedan como se escribieron, porque
         un token distinto es otra sesión, no la misma modificada.
+
+        `fecha_revocacion` NO se toca aquí, y el WHERE deja fuera del UPDATE a
+        las sesiones ya cerradas. Las dos cosas por el mismo motivo: `revocar`
+        no modifica la `Sesion` que recibe (es un dataclass congelado, la verdad
+        vive en la base), así que el objeto en memoria sigue con
+        `fecha_revocacion = None` para siempre. Si ese None se escribiera, un
+        `guardar` posterior reabriría una sesión cerrada y le devolvería el
+        token a quien ya había salido. Revocar es definitivo: la única que
+        escribe esa columna es `revocar`.
 
         Que el usuario exista lo hace valer la llave foránea de la tabla, con
         `PRAGMA foreign_keys = ON` encendido por la conexión: un usuario_id que
@@ -180,8 +188,8 @@ class SesionSQLRepositorio(SesionRepositorio):
             f"INSERT INTO {TABLA} ({', '.join(COLUMNAS)}) VALUES ({marcadores}) "
             f"ON CONFLICT ({', '.join(CLAVE)}) DO UPDATE SET "
             "fecha_expiracion = excluded.fecha_expiracion, "
-            "fecha_revocacion = excluded.fecha_revocacion, "
-            "dispositivo = excluded.dispositivo"
+            "dispositivo = excluded.dispositivo "
+            f"WHERE {TABLA}.fecha_revocacion IS NULL"
         )
         self.__db.execute(sql, tuple(fila[columna] for columna in COLUMNAS))
 

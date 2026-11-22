@@ -26,6 +26,7 @@ from model.usuario import Usuario
 from utils.auth import Sesion
 from model.constants import Roles
 
+
 medico_prueba = Medico(
     cedula_profesional='12345678',
     numero_empleado='EMP-0001',
