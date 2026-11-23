@@ -143,37 +143,7 @@ R = TypeVar("R")
 def autorizado(
     *roles: Roles,
 ) -> Callable[[Callable[Concatenate[Any, P], R]], Callable[Concatenate[Any, P], R]]:
-    """Deja pasar la llamada solo si el rol de la sesión viva es uno de `roles`.
-
-    Basta con cumplir UNO de los roles recibidos. Varios roles y no uno porque
-    apilar dos decoradores no sirve para eso: `@autorizado(A)` sobre
-    `@autorizado(B)` exige los dos a la vez, que es imposible, y la operación
-    quedaría muerta sin que nadie lo notara.
-
-    Son tres niveles y no dos, que es el error más fácil de cometer aquí:
-
-        autorizado(Roles.MEDICO)      <- la fábrica: recibe los roles
-          decorador(funcion)          <- recibe la función, una sola vez, al
-                                         definirse la clase
-            envoltura(objeto, *args)  <- recibe la llamada, cada vez
-
-    Si los roles se pidieran en la envoltura serían un argumento que el que
-    llama tendría que pasar, y en un método se comerían el `self`. Van en la
-    fábrica: ahí se leen una vez al importar y quedan fijos en la clausura.
-
-    El método decorado tiene que ser de un objeto con un `auth`, normalmente
-    heredando de `ServicioAutorizado`.
-
-    Lanza `SesionRequerida` si no hay sesión viva y `PermisoDenegado` si la hay
-    pero el rol no alcanza. Las dos antes de que el cuerpo del método corra:
-    una operación negada no deja nada a medias.
-
-    El `self` va tipado como `Any` porque amarrarlo a un tipo hace que el
-    verificador se queje en cada servicio que además herede de otra cosa. El
-    resto de la firma sí se conserva (`ParamSpec` + `functools.wraps`), que es
-    lo que hace que el editor siga autocompletando los argumentos del método
-    decorado.
-    """
+    """Deja pasar la llamada solo si el rol de la sesión viva es uno de `roles`."""
     
     if not roles or not all(isinstance(rol, Roles) for rol in roles):
         raise TypeError(
